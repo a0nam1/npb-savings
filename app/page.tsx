@@ -299,7 +299,11 @@ export default function Page() {
   const currentSavedAmount = currentResult === "win" ? amountPerWin : 0;
 
   const sortedGames = useMemo(
-    () => [...games].sort((a, b) => b.date.localeCompare(a.date)),
+    () => [...games].sort((a, b) => {
+      const dateCompare = b.date.localeCompare(a.date);
+      if (dateCompare !== 0) return dateCompare;
+      return b.id - a.id;
+    }),
     [games]
   );
 
@@ -345,53 +349,58 @@ export default function Page() {
       }
 
       const data = await res.json();
-      const latestGame = data?.game;
+      const incomingGames = data?.games ?? [];
 
-      if (!latestGame) {
+      if (incomingGames.length === 0) {
         setSyncMessage(data?.message ?? "新しい試合結果はありません");
         return;
       }
 
       setGames((prev) => {
-        const exists = prev.some((g) => {
-          if (latestGame.sourceGameId && g.sourceGameId) {
-            return g.sourceGameId === latestGame.sourceGameId;
-          }
+        const newItems: Game[] = incomingGames
+          .filter((incoming: any) => {
+            return !prev.some((g) => {
+              if (incoming.sourceGameId && g.sourceGameId) {
+                return g.sourceGameId === incoming.sourceGameId;
+              }
 
-          return (
-            g.date === latestGame.date &&
-            g.opponent === latestGame.opponent &&
-            g.teamScore === latestGame.teamScore &&
-            g.opponentScore === latestGame.opponentScore
-          );
-        });
+              return (
+                g.date === incoming.date &&
+                g.opponent === incoming.opponent &&
+                g.teamScore === incoming.teamScore &&
+                g.opponentScore === incoming.opponentScore
+              );
+            });
+          })
+          .map((incoming: any, index: number) => {
+            const result = getResult(incoming.teamScore, incoming.opponentScore);
+            const savedAmount = result === "win" ? amountPerWin : 0;
 
-        if (exists) {
-          setSyncMessage("最新試合はすでに反映済みです");
+            return {
+              id: Date.now() + index,
+              sourceGameId: incoming.sourceGameId,
+              date: incoming.date,
+              opponent: incoming.opponent,
+              teamScore: incoming.teamScore,
+              opponentScore: incoming.opponentScore,
+              result,
+              savedAmount,
+            };
+          });
+
+        if (newItems.length === 0) {
+          setSyncMessage("最新の試合結果はすべて反映済みです");
           return prev;
         }
 
-        const result = getResult(latestGame.teamScore, latestGame.opponentScore);
-        const savedAmount = result === "win" ? amountPerWin : 0;
+        const merged = [...newItems, ...prev].sort((a, b) => {
+          const dateCompare = b.date.localeCompare(a.date);
+          if (dateCompare !== 0) return dateCompare;
+          return b.id - a.id;
+        });
 
-        const newGame: Game = {
-          id: Date.now(),
-          sourceGameId: latestGame.sourceGameId,
-          date: latestGame.date,
-          opponent: latestGame.opponent,
-          teamScore: latestGame.teamScore,
-          opponentScore: latestGame.opponentScore,
-          result,
-          savedAmount,
-        };
-
-        if (result === "win") {
-          setSyncMessage(`最新試合を反映しました（勝利で ${yen(savedAmount)} 加算）`);
-        } else {
-          setSyncMessage("最新試合を反映しました");
-        }
-
-        return [newGame, ...prev];
+        setSyncMessage(`${newItems.length}件の試合結果を反映しました`);
+        return merged;
       });
     } catch (error) {
       console.error(error);

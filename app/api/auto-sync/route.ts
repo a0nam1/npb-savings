@@ -46,6 +46,21 @@ function toJapaneseTeamName(name: string) {
   return reverseTeamMap[name] ?? name;
 }
 
+function normalizeLooseTeamName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/-/g, " ")
+    .trim();
+}
+
+function isSameTeam(apiTeamName: string, eventTeamName: string) {
+  const a = normalizeLooseTeamName(apiTeamName);
+  const b = normalizeLooseTeamName(eventTeamName);
+
+  return a === b || a.includes(b) || b.includes(a);
+}
+
 async function fetchEventsByDate(date: string) {
   const url =
     `${BASE_URL}/eventsday.php?d=${date}` +
@@ -71,7 +86,6 @@ function parseEventTimestamp(event: any) {
 function isCompletedEvent(event: any) {
   const homeScore = Number(event?.intHomeScore);
   const awayScore = Number(event?.intAwayScore);
-
   return !Number.isNaN(homeScore) && !Number.isNaN(awayScore);
 }
 
@@ -79,13 +93,16 @@ export async function GET(req: NextRequest) {
   const favoriteTeam = req.nextUrl.searchParams.get("team");
 
   if (!favoriteTeam) {
-    return NextResponse.json({ error: "team is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "team is required" },
+      { status: 400 }
+    );
   }
 
   const apiTeamName = normalizeTeamName(favoriteTeam);
 
   const today = new Date();
-  const dates = Array.from({ length: 10 }, (_, i) => {
+  const dates = Array.from({ length: 21 }, (_, i) => {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
     return formatDate(d);
@@ -99,14 +116,10 @@ export async function GET(req: NextRequest) {
     const matched = events.filter((event: any) => {
       const home = event?.strHomeTeam ?? "";
       const away = event?.strAwayTeam ?? "";
-      return home === apiTeamName || away === apiTeamName;
+      return isSameTeam(apiTeamName, home) || isSameTeam(apiTeamName, away);
     });
 
     allMatchedEvents = [...allMatchedEvents, ...matched];
-  }
-
-  if (allMatchedEvents.length === 0) {
-    return NextResponse.json({ game: null, message: "試合データが見つかりません" });
   }
 
   const completedEvents = allMatchedEvents
@@ -115,25 +128,29 @@ export async function GET(req: NextRequest) {
 
   if (completedEvents.length === 0) {
     return NextResponse.json({
-      game: null,
-      message: "対象試合は見つかりましたが、スコア確定済みの試合がありません",
+      games: [],
+      message: "結果確定済みの試合がありません",
     });
   }
 
-  const latest = completedEvents[0];
-  const isHome = latest.strHomeTeam === apiTeamName;
+  const games = completedEvents.map((event: any) => {
+    const isHome = isSameTeam(apiTeamName, event.strHomeTeam ?? "");
+    const teamScore = Number(isHome ? event.intHomeScore : event.intAwayScore);
+    const opponentScore = Number(
+      isHome ? event.intAwayScore : event.intHomeScore
+    );
+    const opponentRaw = isHome ? event.strAwayTeam : event.strHomeTeam;
 
-  const teamScore = Number(isHome ? latest.intHomeScore : latest.intAwayScore);
-  const opponentScore = Number(isHome ? latest.intAwayScore : latest.intHomeScore);
-  const opponentRaw = isHome ? latest.strAwayTeam : latest.strHomeTeam;
-
-  return NextResponse.json({
-    game: {
-      sourceGameId: latest.idEvent,
-      date: latest.dateEvent,
+    return {
+      sourceGameId: event.idEvent,
+      date: event.dateEvent,
       opponent: toJapaneseTeamName(opponentRaw),
       teamScore,
       opponentScore,
-    },
+    };
+  });
+
+  return NextResponse.json({
+    games,
   });
 }
