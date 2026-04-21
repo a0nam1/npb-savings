@@ -93,10 +93,7 @@ export async function GET(req: NextRequest) {
   const favoriteTeam = req.nextUrl.searchParams.get("team");
 
   if (!favoriteTeam) {
-    return NextResponse.json(
-      { error: "team is required" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "team is required" }, { status: 400 });
   }
 
   const apiTeamName = normalizeTeamName(favoriteTeam);
