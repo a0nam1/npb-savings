@@ -17,109 +17,122 @@ type Game = {
 
 type TeamInfo = {
   name: string;
+  short: string;
   accent: string;
   soft: string;
   ring: string;
   button: string;
-  bannerText: string;
+  text: string;
 };
 
 const teams: TeamInfo[] = [
   {
     name: "オリックス・バファローズ",
-    accent: "bg-[#c8a54b]",
-    soft: "bg-[#f7f1df]",
-    ring: "ring-[#c8a54b]/30",
-    button: "bg-[#8f6b14] hover:bg-[#7a5c11]",
-    bannerText: "text-[#6b4f0e]",
+    short: "オリ",
+    accent: "from-[#2f6bff] to-[#1740d8]",
+    soft: "bg-[#eef4ff]",
+    ring: "ring-[#2f6bff]/20",
+    button: "from-[#2f6bff] to-[#1740d8]",
+    text: "text-[#1740d8]",
   },
   {
     name: "阪神タイガース",
-    accent: "bg-[#f0c400]",
-    soft: "bg-[#fff9db]",
-    ring: "ring-[#f0c400]/30",
-    button: "bg-[#222222] hover:bg-black",
-    bannerText: "text-[#544300]",
+    short: "阪神",
+    accent: "from-[#f3c300] to-[#c89c00]",
+    soft: "bg-[#fff8d9]",
+    ring: "ring-[#f3c300]/20",
+    button: "from-[#222] to-[#111]",
+    text: "text-[#8c6a00]",
   },
   {
     name: "読売ジャイアンツ",
-    accent: "bg-[#f97316]",
-    soft: "bg-[#fff1e8]",
-    ring: "ring-orange-300",
-    button: "bg-[#f97316] hover:bg-[#ea580c]",
-    bannerText: "text-[#9a3412]",
+    short: "読売",
+    accent: "from-[#ff8a2a] to-[#ff5f00]",
+    soft: "bg-[#fff0e4]",
+    ring: "ring-orange-200",
+    button: "from-[#ff8a2a] to-[#ff5f00]",
+    text: "text-[#c65200]",
   },
   {
     name: "横浜DeNAベイスターズ",
-    accent: "bg-[#2563eb]",
-    soft: "bg-[#eaf2ff]",
-    ring: "ring-blue-300",
-    button: "bg-[#2563eb] hover:bg-[#1d4ed8]",
-    bannerText: "text-[#1d4ed8]",
+    short: "横浜",
+    accent: "from-[#2f6bff] to-[#0d49dc]",
+    soft: "bg-[#eef4ff]",
+    ring: "ring-blue-200",
+    button: "from-[#2f6bff] to-[#0d49dc]",
+    text: "text-[#1740d8]",
   },
   {
     name: "広島東洋カープ",
-    accent: "bg-[#dc2626]",
-    soft: "bg-[#feecec]",
-    ring: "ring-red-300",
-    button: "bg-[#dc2626] hover:bg-[#b91c1c]",
-    bannerText: "text-[#b91c1c]",
+    short: "広島",
+    accent: "from-[#ff6b6b] to-[#e53935]",
+    soft: "bg-[#fff0f0]",
+    ring: "ring-red-200",
+    button: "from-[#ff6b6b] to-[#e53935]",
+    text: "text-[#c62828]",
   },
   {
     name: "東京ヤクルトスワローズ",
-    accent: "bg-[#22c55e]",
-    soft: "bg-[#ebfbef]",
-    ring: "ring-green-300",
-    button: "bg-[#0f766e] hover:bg-[#115e59]",
-    bannerText: "text-[#0f766e]",
+    short: "ヤク",
+    accent: "from-[#4fd67a] to-[#14b86a]",
+    soft: "bg-[#eefdf4]",
+    ring: "ring-green-200",
+    button: "from-[#00a884] to-[#0f766e]",
+    text: "text-[#0f766e]",
   },
   {
     name: "中日ドラゴンズ",
-    accent: "bg-[#1d4ed8]",
-    soft: "bg-[#ebf2ff]",
-    ring: "ring-blue-300",
-    button: "bg-[#1d4ed8] hover:bg-[#1e40af]",
-    bannerText: "text-[#1e40af]",
+    short: "中日",
+    accent: "from-[#4f8dff] to-[#1d4ed8]",
+    soft: "bg-[#eef4ff]",
+    ring: "ring-blue-200",
+    button: "from-[#4f8dff] to-[#1d4ed8]",
+    text: "text-[#1d4ed8]",
   },
   {
     name: "福岡ソフトバンクホークス",
-    accent: "bg-[#facc15]",
-    soft: "bg-[#fffbea]",
-    ring: "ring-yellow-300",
-    button: "bg-[#111827] hover:bg-black",
-    bannerText: "text-[#854d0e]",
+    short: "福岡",
+    accent: "from-[#444] to-[#111]",
+    soft: "bg-[#f3f3f3]",
+    ring: "ring-slate-200",
+    button: "from-[#222] to-[#111]",
+    text: "text-[#444]",
   },
   {
     name: "北海道日本ハムファイターズ",
-    accent: "bg-[#60a5fa]",
-    soft: "bg-[#edf6ff]",
-    ring: "ring-sky-300",
-    button: "bg-[#1e3a8a] hover:bg-[#1e40af]",
-    bannerText: "text-[#1e3a8a]",
+    short: "日ハム",
+    accent: "from-[#78b2ff] to-[#245bdb]",
+    soft: "bg-[#eef6ff]",
+    ring: "ring-sky-200",
+    button: "from-[#245bdb] to-[#163d9d]",
+    text: "text-[#163d9d]",
   },
   {
     name: "千葉ロッテマリーンズ",
-    accent: "bg-[#6b7280]",
-    soft: "bg-[#f3f4f6]",
-    ring: "ring-slate-300",
-    button: "bg-[#374151] hover:bg-[#1f2937]",
-    bannerText: "text-[#374151]",
+    short: "ロッテ",
+    accent: "from-[#8b95a7] to-[#4b5563]",
+    soft: "bg-[#f4f6f8]",
+    ring: "ring-slate-200",
+    button: "from-[#6b7280] to-[#374151]",
+    text: "text-[#374151]",
   },
   {
     name: "東北楽天ゴールデンイーグルス",
-    accent: "bg-[#b91c1c]",
-    soft: "bg-[#fef0f0]",
-    ring: "ring-rose-300",
-    button: "bg-[#b91c1c] hover:bg-[#991b1b]",
-    bannerText: "text-[#991b1b]",
+    short: "楽天",
+    accent: "from-[#dc4b4b] to-[#b91c1c]",
+    soft: "bg-[#fff1f1]",
+    ring: "ring-rose-200",
+    button: "from-[#dc4b4b] to-[#b91c1c]",
+    text: "text-[#b91c1c]",
   },
   {
     name: "埼玉西武ライオンズ",
-    accent: "bg-[#2563eb]",
-    soft: "bg-[#ecf3ff]",
-    ring: "ring-blue-300",
-    button: "bg-[#2563eb] hover:bg-[#1d4ed8]",
-    bannerText: "text-[#1d4ed8]",
+    short: "西武",
+    accent: "from-[#4f8dff] to-[#245bdb]",
+    soft: "bg-[#eef4ff]",
+    ring: "ring-blue-200",
+    button: "from-[#4f8dff] to-[#245bdb]",
+    text: "text-[#245bdb]",
   },
 ];
 
@@ -135,7 +148,7 @@ function gamesStorageKey(teamName: string) {
 }
 
 function yen(value: number) {
-  return `${new Intl.NumberFormat("ja-JP").format(value)}円`;
+  return `¥${new Intl.NumberFormat("ja-JP").format(value)}`;
 }
 
 function getResult(teamScore: number, opponentScore: number): GameResult {
@@ -145,15 +158,9 @@ function getResult(teamScore: number, opponentScore: number): GameResult {
 }
 
 function resultLabel(result: GameResult) {
-  if (result === "win") return "勝ち";
-  if (result === "lose") return "負け";
-  return "引き分け";
-}
-
-function resultBadgeClass(result: GameResult) {
-  if (result === "win") return "bg-emerald-100 text-emerald-700";
-  if (result === "lose") return "bg-red-100 text-red-700";
-  return "bg-slate-200 text-slate-700";
+  if (result === "win") return "勝利";
+  if (result === "lose") return "敗戦";
+  return "引分";
 }
 
 function monthKey(date: string) {
@@ -164,10 +171,6 @@ function teamByName(name: string) {
   return teams.find((team) => team.name === name) ?? teams[0];
 }
 
-function initials(name: string) {
-  return name.replace(/・/g, "").slice(0, 2);
-}
-
 function createTimestamp() {
   return new Date().toLocaleString("ja-JP", {
     year: "numeric",
@@ -176,6 +179,41 @@ function createTimestamp() {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function badgeStyle(result: GameResult) {
+  if (result === "win") return "bg-[#ddf8e4] text-[#24a148]";
+  if (result === "lose") return "bg-[#ffe3de] text-[#e85b4f]";
+  return "bg-[#dfe9ff] text-[#2f6bff]";
+}
+
+function octagonStyle(result: GameResult) {
+  if (result === "win") return "bg-[#7fe09b]";
+  if (result === "lose") return "bg-[#ff9f92]";
+  return "bg-[#6fa7ff]";
+}
+
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
+
+function NeumorphCard({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "soft-panel pop-in rounded-[28px] border border-white/70 bg-white/80 backdrop-blur",
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 export default function Page() {
@@ -207,18 +245,9 @@ export default function Page() {
       const parsed = Number(savedAmount);
       if (!Number.isNaN(parsed)) setAmountPerWin(parsed);
     }
-
-    if (savedTeam) {
-      setFavoriteTeam(savedTeam);
-    }
-
-    if (savedLastSavedAt) {
-      setLastSavedAt(savedLastSavedAt);
-    }
-
-    if (savedLastSyncedAt) {
-      setLastSyncedAt(savedLastSyncedAt);
-    }
+    if (savedTeam) setFavoriteTeam(savedTeam);
+    if (savedLastSavedAt) setLastSavedAt(savedLastSavedAt);
+    if (savedLastSyncedAt) setLastSyncedAt(savedLastSyncedAt);
 
     setIsHydrated(true);
   }, []);
@@ -227,7 +256,6 @@ export default function Page() {
     if (!isHydrated) return;
 
     const savedGames = localStorage.getItem(currentGamesKey);
-
     if (savedGames) {
       try {
         setGames(JSON.parse(savedGames));
@@ -284,32 +312,37 @@ export default function Page() {
     () => games.filter((g) => g.result === "win").length,
     [games]
   );
-
   const loseCount = useMemo(
     () => games.filter((g) => g.result === "lose").length,
     [games]
   );
-
   const drawCount = useMemo(
     () => games.filter((g) => g.result === "draw").length,
     [games]
   );
 
   const currentResult = getResult(teamScore, opponentScore);
-  const currentSavedAmount = currentResult === "win" ? amountPerWin : 0;
+  const currentSavedAmount =
+    currentResult === "win"
+      ? amountPerWin
+      : currentResult === "draw"
+      ? Math.floor(amountPerWin / 2)
+      : 0;
 
   const sortedGames = useMemo(
-    () => [...games].sort((a, b) => {
-      const dateCompare = b.date.localeCompare(a.date);
-      if (dateCompare !== 0) return dateCompare;
-      return b.id - a.id;
-    }),
+    () =>
+      [...games].sort((a, b) => {
+        const dateCompare = b.date.localeCompare(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return b.id - a.id;
+      }),
     [games]
   );
 
+  const recentGames = sortedGames.slice(0, 2);
+
   const monthlySummary = useMemo(() => {
     const grouped = new Map<string, { savings: number; wins: number; games: number }>();
-
     for (const game of games) {
       const key = monthKey(game.date);
       const current = grouped.get(key) ?? { savings: 0, wins: 0, games: 0 };
@@ -318,7 +351,6 @@ export default function Page() {
       if (game.result === "win") current.wins += 1;
       grouped.set(key, current);
     }
-
     return Array.from(grouped.entries())
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([month, value]) => ({ month, ...value }));
@@ -363,7 +395,6 @@ export default function Page() {
               if (incoming.sourceGameId && g.sourceGameId) {
                 return g.sourceGameId === incoming.sourceGameId;
               }
-
               return (
                 g.date === incoming.date &&
                 g.opponent === incoming.opponent &&
@@ -374,7 +405,12 @@ export default function Page() {
           })
           .map((incoming: any, index: number) => {
             const result = getResult(incoming.teamScore, incoming.opponentScore);
-            const savedAmount = result === "win" ? amountPerWin : 0;
+            const savedAmount =
+              result === "win"
+                ? amountPerWin
+                : result === "draw"
+                ? Math.floor(amountPerWin / 2)
+                : 0;
 
             return {
               id: Date.now() + index,
@@ -433,7 +469,7 @@ export default function Page() {
     localStorage.setItem(STORAGE_KEYS.favoriteTeam, favoriteTeam);
     localStorage.setItem(STORAGE_KEYS.lastSavedAt, now);
     setLastSavedAt(now);
-    alert("保存しました");
+    setSyncMessage("保存しました");
   }
 
   function resetForm() {
@@ -448,7 +484,12 @@ export default function Page() {
     if (!opponent.trim()) return;
 
     const result = getResult(teamScore, opponentScore);
-    const savedAmount = result === "win" ? amountPerWin : 0;
+    const savedAmount =
+      result === "win"
+        ? amountPerWin
+        : result === "draw"
+        ? Math.floor(amountPerWin / 2)
+        : 0;
 
     if (editingId !== null) {
       setGames((prev) =>
@@ -514,379 +555,426 @@ export default function Page() {
     resetForm();
   }
 
+  const infoRows = [
+    { label: "推し球団", value: favoriteTeam, icon: "👕" },
+    { label: "日付", value: date, icon: "📅" },
+    { label: "対戦相手", value: opponent || "未選択", icon: "VS" },
+    { label: "1勝ごとの金額", value: yen(amountPerWin), icon: "🪙" },
+    { label: "自チーム得点", value: `${teamScore}`, icon: "🪄" },
+    { label: "相手得点", value: `${opponentScore}`, icon: "⚾" },
+  ];
+
   return (
-    <main className={`min-h-screen text-slate-900 ${selectedTeam.soft}`}>
-      <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
-        <header className="mb-8 overflow-hidden rounded-[2rem] bg-white shadow-sm ring-1 ring-slate-200">
-          <div className={`h-3 w-full ${selectedTeam.accent}`} />
-          <div className="p-6 md:p-8">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
+    <main className="min-h-screen pb-28 text-slate-700">
+      <div className="mx-auto max-w-md px-4 pb-8 pt-5">
+        <header className="mb-4">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <p className="mb-2 text-sm font-black tracking-wide text-[#2f6bff]">
+                推し活 × 貯金
+              </p>
+              <div className="flex items-end gap-2">
+                <h1 className="arcade-title text-[34px] font-black tracking-tight text-[#2450d7]">
                   推し勝貯金
                 </h1>
-                <p className="mt-2 text-sm text-slate-600 md:text-base">
-                  推し球団の勝利にあわせて貯金するWebアプリ
-                </p>
+                <span className="mb-2 text-lg">✨</span>
               </div>
-
-              <div className="flex flex-col gap-2 md:items-end">
-                <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
-                  現在の推し球団: <span className="font-semibold">{favoriteTeam}</span>
-                </div>
-
-                {lastSavedAt && (
-                  <div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-600">
-                    最終保存: {lastSavedAt}
-                  </div>
-                )}
-
-                {lastSyncedAt && (
-                  <div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-600">
-                    最終同期: {lastSyncedAt}
-                  </div>
-                )}
-
-                {syncMessage && (
-                  <div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-700">
-                    {syncMessage}
-                  </div>
-                )}
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => void syncLatestGame()}
-                    disabled={isSyncing}
-                    className="rounded-2xl border border-slate-300 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isSyncing ? "同期中..." : "最新試合を同期"}
-                  </button>
-
-                  <button
-                    onClick={saveToLocalStorage}
-                    className="rounded-2xl bg-blue-600 px-4 py-2 text-sm text-white transition hover:bg-blue-500"
-                  >
-                    保存
-                  </button>
-
-                  <button
-                    onClick={resetAllData}
-                    className="rounded-2xl border border-red-200 px-4 py-2 text-sm text-red-600 transition hover:bg-red-50"
-                  >
-                    データをリセット
-                  </button>
-                </div>
-              </div>
+              <p className="mt-1 text-base font-semibold text-slate-500">
+                現在の推し球団：
+                <span className="text-[#2f6bff]">{favoriteTeam}</span>
+              </p>
             </div>
+
+            <div className="float-card glossy-white flex h-16 w-16 items-center justify-center rounded-full ring-1 ring-slate-200">
+              <span className="text-3xl">🐱</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {lastSavedAt && (
+              <div className="soft-inset rounded-[18px] px-4 py-2 text-sm font-bold text-slate-500">
+                最終保存: {lastSavedAt}
+              </div>
+            )}
+            {lastSyncedAt && (
+              <div className="soft-inset rounded-[18px] px-4 py-2 text-sm font-bold text-slate-500">
+                最終同期: {lastSyncedAt}
+              </div>
+            )}
+            {syncMessage && (
+              <div className="soft-inset rounded-[18px] px-4 py-3 text-sm font-bold text-slate-600">
+                {syncMessage}
+              </div>
+            )}
           </div>
         </header>
 
-        <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className={`rounded-3xl bg-white p-5 shadow-sm ring-1 ${selectedTeam.ring}`}>
-            <p className="text-sm text-slate-500">累計貯金額</p>
-            <p className="mt-2 text-3xl font-bold">{yen(totalSavings)}</p>
-          </div>
-
-          <div className={`rounded-3xl bg-white p-5 shadow-sm ring-1 ${selectedTeam.ring}`}>
-            <p className="text-sm text-slate-500">1勝あたり</p>
-            <p className="mt-2 text-3xl font-bold">{yen(amountPerWin)}</p>
-          </div>
-
-          <div className={`rounded-3xl bg-white p-5 shadow-sm ring-1 ${selectedTeam.ring}`}>
-            <p className="text-sm text-slate-500">勝敗数</p>
-            <p className="mt-2 text-xl font-semibold">
-              {winCount}勝 {loseCount}敗 {drawCount}分
-            </p>
-          </div>
-
-          <div className={`rounded-3xl bg-white p-5 shadow-sm ring-1 ${selectedTeam.ring}`}>
-            <p className="text-sm text-slate-500">今回の加算予定</p>
-            <p className="mt-2 text-3xl font-bold">{yen(currentSavedAmount)}</p>
-          </div>
-        </section>
-
-        <div className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
-          <section className={`rounded-3xl bg-white p-5 shadow-sm ring-1 ${selectedTeam.ring}`}>
-            <h2 className="mb-4 text-xl font-semibold">
-              {editingId !== null ? "試合を編集" : "試合を追加"}
-            </h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  推し球団
-                </label>
-                <select
-                  value={favoriteTeam}
-                  onChange={(e) => setFavoriteTeam(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-500"
-                >
-                  {teams.map((team) => (
-                    <option key={team.name} value={team.name}>
-                      {team.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  日付
-                </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-500"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  対戦相手
-                </label>
-                <select
-                  value={opponent}
-                  onChange={(e) => setOpponent(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-500"
-                >
-                  <option value="">対戦相手を選択</option>
-                  {teams
-                    .filter((team) => team.name !== favoriteTeam)
-                    .map((team) => (
-                      <option key={team.name} value={team.name}>
-                        {team.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {opponent && (
-                <div className={`rounded-2xl p-4 ${teamByName(opponent).soft}`}>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
-                        teamByName(opponent).accent
-                      } text-sm font-bold text-white shadow-sm`}
-                    >
-                      {initials(opponent)}
-                    </div>
-                    <div>
-                      <p
-                        className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                          teamByName(opponent).bannerText
-                        }`}
-                      >
-                        対戦相手
-                      </p>
-                      <p className="mt-1 text-lg font-semibold">{opponent}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  1勝ごとの金額
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step={500}
-                  value={amountPerWin}
-                  onChange={(e) => setAmountPerWin(Number(e.target.value) || 0)}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    自チーム得点
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={teamScore}
-                    onChange={(e) => setTeamScore(Number(e.target.value) || 0)}
-                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    相手得点
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={opponentScore}
-                    onChange={(e) => setOpponentScore(Number(e.target.value) || 0)}
-                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-500"
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-slate-100 p-4">
-                <p className="text-sm text-slate-500">判定結果</p>
-                <div className="mt-2 flex items-center gap-3">
-                  <span
-                    className={`rounded-full px-3 py-1 text-sm font-semibold ${resultBadgeClass(
-                      currentResult
-                    )}`}
-                  >
-                    {resultLabel(currentResult)}
-                  </span>
-                  <span className="text-sm text-slate-600">
-                    追加予定: {yen(currentSavedAmount)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={saveGame}
-                  className={`flex-1 rounded-2xl px-4 py-3 text-sm font-medium text-white transition ${selectedTeam.button}`}
-                >
-                  {editingId !== null ? "更新する" : "試合を追加"}
-                </button>
-
-                {editingId !== null && (
-                  <button
-                    onClick={resetForm}
-                    className="rounded-2xl border border-slate-300 px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"
-                  >
-                    キャンセル
-                  </button>
-                )}
+        <NeumorphCard className="float-card arcade-shadow sparkle mb-4 overflow-hidden p-0">
+          <div className={cn("h-3 w-full bg-gradient-to-r", selectedTeam.accent)} />
+          <div className="grid grid-cols-[1.3fr_1fr] gap-0">
+            <div className="p-5">
+              <p className="mb-2 text-center text-xl font-black text-[#2446c9]">累計貯金額</p>
+              <div className="soft-inset relative overflow-hidden rounded-[24px] border border-[#e6edff] px-4 py-6 text-center">
+                <div className="pointer-events-none absolute inset-0 rounded-[24px] border-4 border-dashed border-[#b9d0ff] opacity-60" />
+                <p className="relative text-[44px] font-black leading-none tracking-tight text-[#1c45d8]">
+                  {yen(totalSavings)}
+                </p>
               </div>
             </div>
-          </section>
 
-          <div className="space-y-6">
-            <section className={`rounded-3xl bg-white p-5 shadow-sm ring-1 ${selectedTeam.ring}`}>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-semibold">試合履歴</h2>
-                <span className="text-sm text-slate-500">{games.length}件</span>
+            <div className="flex flex-col justify-between p-4">
+              <div className="soft-inset rounded-[24px] p-4">
+                <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#4f8dff] to-[#245bdb] shadow-[0_10px_18px_rgba(47,107,255,0.25)]">
+                  <span className="text-4xl">🕹️</span>
+                </div>
+                <div className="glossy-blue rounded-full px-4 py-2 text-center text-sm font-black text-white">
+                  1 勝 {yen(amountPerWin)}
+                </div>
               </div>
+            </div>
+          </div>
+        </NeumorphCard>
 
-              {sortedGames.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center text-slate-500">
+        <NeumorphCard className="float-card mb-4 p-4">
+          <div className="grid grid-cols-3 divide-x divide-slate-100">
+            {[
+              { label: "勝ち", value: winCount, tone: "win" as GameResult },
+              { label: "負け", value: loseCount, tone: "lose" as GameResult },
+              { label: "引き分け", value: drawCount, tone: "draw" as GameResult },
+            ].map((item) => (
+              <div key={item.label} className="px-2 text-center">
+                <div
+                  className={cn(
+                    "mx-auto mb-2 flex h-12 w-12 items-center justify-center text-xl font-black text-white shadow-md",
+                    octagonStyle(item.tone)
+                  )}
+                  style={{
+                    clipPath:
+                      "polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)",
+                  }}
+                >
+                  {item.label[0]}
+                </div>
+                <div className="text-[44px] font-black leading-none text-slate-600">
+                  {item.value}
+                </div>
+                <p className="mt-1 text-base font-bold text-slate-500">{item.label}</p>
+              </div>
+            ))}
+          </div>
+        </NeumorphCard>
+
+        <NeumorphCard className="float-card mb-4 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-3xl">⚾</span>
+            <h2 className="text-xl font-black text-slate-700">直近の試合結果</h2>
+          </div>
+
+          <div className="soft-inset rounded-[28px] border border-[#d8e5ff] p-3">
+            <div className="grid grid-cols-2 gap-3">
+              {recentGames.length === 0 ? (
+                <div className="soft-inset col-span-2 rounded-[24px] p-8 text-center text-slate-400">
                   まだ試合が登録されていません
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {sortedGames.map((game) => {
-                    const opponentTeam = teamByName(game.opponent);
-
-                    return (
-                      <div key={game.id} className="rounded-2xl border border-slate-200 p-4">
-                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                          <div>
-                            <p className="text-sm text-slate-500">{game.date}</p>
-
-                            <div className="mt-2 flex items-center gap-3">
-                              <div
-                                className={`flex h-11 w-11 items-center justify-center rounded-2xl ${opponentTeam.accent} text-sm font-bold text-white shadow-sm`}
-                              >
-                                {initials(game.opponent)}
-                              </div>
-
-                              <div>
-                                <p
-                                  className={`rounded-full px-3 py-1 text-xs font-semibold ${opponentTeam.soft} ${opponentTeam.bannerText}`}
-                                >
-                                  対戦相手
-                                </p>
-                                <p className="mt-1 text-lg font-semibold">{game.opponent}</p>
-                              </div>
-                            </div>
-
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <span className="text-sm text-slate-700">
-                                {game.teamScore} - {game.opponentScore}
-                              </span>
-                              <span
-                                className={`rounded-full px-3 py-1 text-xs font-semibold ${resultBadgeClass(
-                                  game.result
-                                )}`}
-                              >
-                                {resultLabel(game.result)}
-                              </span>
-                            </div>
-
-                            <p className="mt-2 text-sm font-medium text-slate-900">
-                              貯金額: {yen(game.savedAmount)}
-                            </p>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => startEdit(game)}
-                              className="rounded-2xl border border-slate-300 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
-                            >
-                              編集
-                            </button>
-                            <button
-                              onClick={() => deleteGame(game.id)}
-                              className="rounded-2xl border border-red-200 px-4 py-2 text-sm text-red-600 transition hover:bg-red-50"
-                            >
-                              削除
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                recentGames.map((game) => (
+                  <div
+                    key={game.id}
+                    className="float-card glossy-white rounded-[24px] border border-slate-100 p-4 text-center"
+                  >
+                    <p className="text-sm font-bold text-slate-500">
+                      {game.date.slice(5).replace("-", "/")}
+                    </p>
+                    <p className="mt-2 text-xs font-semibold text-slate-400">
+                      vs {game.opponent}
+                    </p>
+                    <p
+                      className={cn(
+                        "mt-4 text-[56px] font-black leading-none tracking-tight",
+                        game.result === "win" && "text-[#2f6bff]",
+                        game.result === "lose" && "text-slate-300",
+                        game.result === "draw" && "text-[#6fa7ff]"
+                      )}
+                    >
+                      {game.teamScore}-{game.opponentScore}
+                    </p>
+                    <div className="mt-4 inline-flex rounded-full px-4 py-2 text-sm font-black">
+                      <span className={cn("rounded-full px-4 py-2", badgeStyle(game.result))}>
+                        {resultLabel(game.result)}
+                      </span>
+                    </div>
+                  </div>
+                ))
               )}
-            </section>
+            </div>
 
-            <section className={`rounded-3xl bg-white p-5 shadow-sm ring-1 ${selectedTeam.ring}`}>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-semibold">月別集計</h2>
-                <span className="text-sm text-slate-500">{monthlySummary.length}か月</span>
+            <div className="mt-4 flex justify-center gap-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <span
+                  key={i}
+                  className={cn(
+                    "h-2.5 w-2.5 rounded-full",
+                    i === 3 ? "bg-[#2f6bff]" : "bg-slate-200"
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        </NeumorphCard>
+
+        <NeumorphCard className="float-card mb-4 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-xl">⭐</span>
+            <h2 className="text-xl font-black text-slate-700">今回の加算予定</h2>
+          </div>
+
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <div className="soft-inset rounded-[22px] border border-[#dfe7ff] p-4">
+              <p className="mb-1 text-sm font-bold text-slate-500">勝利で追加</p>
+              <p className="text-[34px] font-black text-[#2f6bff]">{yen(amountPerWin)}</p>
+            </div>
+
+            <div className="glossy-white flex h-16 w-16 items-center justify-center rounded-full border-4 border-[#2f6bff] text-3xl">
+              ⚾
+            </div>
+
+            <div className="soft-inset rounded-[22px] border border-[#dff5e5] p-4">
+              <p className="mb-1 text-sm font-bold text-slate-500">引き分けで追加</p>
+              <p className="text-[34px] font-black text-[#57c779]">
+                {yen(Math.floor(amountPerWin / 2))}
+              </p>
+            </div>
+          </div>
+        </NeumorphCard>
+
+        <NeumorphCard className="float-card mb-4 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-xl">⭐</span>
+            <h2 className="text-xl font-black text-slate-700">試合情報</h2>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {infoRows.map((row) => (
+              <div
+                key={row.label}
+                className="soft-inset rounded-[18px] border border-slate-100 p-3"
+              >
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#eef4ff] text-[#2f6bff]">
+                    {row.icon}
+                  </span>
+                  {row.label}
+                </div>
+                <p className="mt-2 break-words pl-10 text-sm font-black text-slate-700">
+                  {row.value}
+                </p>
               </div>
+            ))}
+          </div>
+        </NeumorphCard>
 
-              {monthlySummary.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
-                  まだ集計できるデータがありません
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {monthlySummary.map((item) => {
-                    const width = `${(item.savings / maxMonthlySavings) * 100}%`;
+        <NeumorphCard className="float-card mb-4 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xl font-black text-slate-700">月別集計</h2>
+            <span className="text-sm font-bold text-slate-400">{monthlySummary.length}か月</span>
+          </div>
 
-                    return (
-                      <div key={item.month} className="rounded-2xl bg-slate-50 p-4">
-                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                          <div className="min-w-0">
-                            <p className="font-semibold">{item.month.replace("-", "年")}月</p>
-                            <p className="text-sm text-slate-600">
-                              {item.games}試合 / {item.wins}勝
-                            </p>
-                          </div>
-                          <p className="text-lg font-bold">{yen(item.savings)}</p>
-                        </div>
-
-                        <div className="mt-4">
-                          <div className="mb-2 flex items-end justify-between text-xs text-slate-500">
-                            <span>月別貯金額</span>
-                            <span>{Math.round((item.savings / maxMonthlySavings) * 100)}%</span>
-                          </div>
-                          <div className="h-4 overflow-hidden rounded-full bg-slate-200">
-                            <div
-                              className={`h-full rounded-full ${selectedTeam.accent}`}
-                              style={{ width }}
-                            />
-                          </div>
-                        </div>
+          {monthlySummary.length === 0 ? (
+            <div className="soft-inset rounded-[20px] p-8 text-center text-slate-400">
+              まだ集計できるデータがありません
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {monthlySummary.map((item) => {
+                const width = `${(item.savings / maxMonthlySavings) * 100}%`;
+                return (
+                  <div key={item.month} className="soft-inset rounded-[20px] p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div>
+                        <p className="font-black text-slate-700">
+                          {item.month.replace("-", "年")}月
+                        </p>
+                        <p className="text-sm font-semibold text-slate-400">
+                          {item.games}試合 / {item.wins}勝
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
+                      <p className="text-2xl font-black text-[#2f6bff]">{yen(item.savings)}</p>
+                    </div>
+                    <div className="h-4 rounded-full bg-slate-100">
+                      <div
+                        className={cn("h-full rounded-full bg-gradient-to-r", selectedTeam.accent)}
+                        style={{ width }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </NeumorphCard>
+
+        <NeumorphCard className="float-card mb-6 p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-black text-slate-700">
+              {editingId !== null ? "試合を編集" : "試合を追加"}
+            </h2>
+            <button
+              onClick={() => void syncLatestGame()}
+              disabled={isSyncing}
+              className={cn(
+                "glossy-blue rounded-full px-4 py-2 text-sm font-black text-white",
+                isSyncing && "opacity-50"
               )}
-            </section>
+            >
+              {isSyncing ? "同期中..." : "同期"}
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <select
+              value={favoriteTeam}
+              onChange={(e) => setFavoriteTeam(e.target.value)}
+              className="glossy-white w-full rounded-[18px] border border-[#dbe5ff] px-4 py-4 text-sm font-bold"
+            >
+              {teams.map((team) => (
+                <option key={team.name} value={team.name}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="glossy-white w-full rounded-[18px] border border-[#dbe5ff] px-4 py-4 text-sm font-bold"
+            />
+
+            <select
+              value={opponent}
+              onChange={(e) => setOpponent(e.target.value)}
+              className="glossy-white w-full rounded-[18px] border border-[#dbe5ff] px-4 py-4 text-sm font-bold"
+            >
+              <option value="">対戦相手を選択</option>
+              {teams
+                .filter((team) => team.name !== favoriteTeam)
+                .map((team) => (
+                  <option key={team.name} value={team.name}>
+                    {team.name}
+                  </option>
+                ))}
+            </select>
+
+            <input
+              type="number"
+              min={0}
+              step={500}
+              value={amountPerWin}
+              onChange={(e) => setAmountPerWin(Number(e.target.value) || 0)}
+              placeholder="1勝ごとの金額"
+              className="glossy-white w-full rounded-[18px] border border-[#dbe5ff] px-4 py-4 text-sm font-bold"
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="number"
+                min={0}
+                value={teamScore}
+                onChange={(e) => setTeamScore(Number(e.target.value) || 0)}
+                placeholder="自チーム得点"
+                className="glossy-white w-full rounded-[18px] border border-[#dbe5ff] px-4 py-4 text-sm font-bold"
+              />
+              <input
+                type="number"
+                min={0}
+                value={opponentScore}
+                onChange={(e) => setOpponentScore(Number(e.target.value) || 0)}
+                placeholder="相手得点"
+                className="glossy-white w-full rounded-[18px] border border-[#dbe5ff] px-4 py-4 text-sm font-bold"
+              />
+            </div>
+
+            <div className="soft-inset rounded-[18px] p-4">
+              <p className="text-sm font-bold text-slate-400">判定結果</p>
+              <div className="mt-2 flex items-center justify-between">
+                <span className={cn("rounded-full px-4 py-2 text-sm font-black", badgeStyle(currentResult))}>
+                  {resultLabel(currentResult)}
+                </span>
+                <span className="text-base font-black text-[#2f6bff]">
+                  追加予定 {yen(currentSavedAmount)}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={saveGame}
+                className={cn(
+                  "rounded-[18px] bg-gradient-to-r px-4 py-4 text-sm font-black text-white shadow-lg",
+                  selectedTeam.button
+                )}
+              >
+                {editingId !== null ? "更新する" : "試合を追加"}
+              </button>
+
+              <button
+                onClick={saveToLocalStorage}
+                className="glossy-blue rounded-[18px] px-4 py-4 text-sm font-black text-white"
+              >
+                保存
+              </button>
+            </div>
+
+            {editingId !== null && (
+              <button
+                onClick={resetForm}
+                className="glossy-white w-full rounded-[18px] border border-slate-200 px-4 py-4 text-sm font-black text-slate-500"
+              >
+                キャンセル
+              </button>
+            )}
+
+            <button
+              onClick={resetAllData}
+              className="w-full rounded-[18px] border border-red-100 bg-[#fff7f7] px-4 py-4 text-sm font-black text-[#eb5d55]"
+            >
+              データをリセット
+            </button>
+          </div>
+        </NeumorphCard>
+
+        <div className="fixed inset-x-0 bottom-0 mx-auto max-w-md px-4 pb-4">
+          <div className="bottom-dock rounded-[28px] border border-white/70 bg-white/95 p-3 backdrop-blur">
+            <div className="grid grid-cols-5 gap-2 text-center">
+              {[
+                { label: "ホーム", icon: "🏠", active: true },
+                { label: "試合履歴", icon: "🧾" },
+                { label: "貯金箱", icon: "🐷" },
+                { label: "グラフ", icon: "📊" },
+                { label: "設定", icon: "⚙️" },
+              ].map((item) => (
+                <div key={item.label} className="flex flex-col items-center gap-1">
+                  <div
+                    className={cn(
+                      "flex h-14 w-14 items-center justify-center rounded-[18px] text-2xl",
+                      item.active
+                        ? "glossy-blue text-white"
+                        : "text-slate-400"
+                    )}
+                  >
+                    {item.icon}
+                  </div>
+                  <p
+                    className={cn(
+                      "text-xs font-black",
+                      item.active ? "text-[#2f6bff]" : "text-slate-400"
+                    )}
+                  >
+                    {item.label}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

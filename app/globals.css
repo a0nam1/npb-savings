@@ -1,26 +1,216 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f8fc;
+  --foreground: #475569;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(90, 137, 255, 0.08), transparent 28%),
+    radial-gradient(circle at 100% 20%, rgba(111, 167, 255, 0.09), transparent 30%),
+    linear-gradient(180deg, #f8f9fd 0%, #f3f6fc 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    "Inter",
+    "Noto Sans JP",
+    "Hiragino Sans",
+    "Yu Gothic UI",
+    sans-serif;
+  min-height: 100vh;
+}
+
+/* ふんわりした共通見た目 */
+.soft-panel {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 10px 30px rgba(50, 90, 180, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.soft-inset {
+  background: linear-gradient(180deg, #fdfefe 0%, #f4f7ff 100%);
+  box-shadow:
+    inset 0 2px 8px rgba(160, 180, 220, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.glossy-blue {
+  background: linear-gradient(180deg, #5c97ff 0%, #2f6bff 48%, #1d4ed8 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.35),
+    0 10px 20px rgba(47, 107, 255, 0.24);
+}
+
+.glossy-white {
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8ff 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 8px 22px rgba(84, 105, 160, 0.1);
+}
+
+.arcade-shadow {
+  box-shadow:
+    0 12px 26px rgba(46, 85, 170, 0.12),
+    0 4px 0 rgba(47, 107, 255, 0.85);
+}
+
+/* 入力系を少し立体化 */
+input,
+select,
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+select:focus {
+  outline: none;
+  border-color: rgba(47, 107, 255, 0.35) !important;
+  box-shadow:
+    0 0 0 4px rgba(47, 107, 255, 0.08),
+    0 10px 20px rgba(47, 107, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+/* ボタンの押し心地 */
+button {
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease,
+    opacity 0.18s ease;
+}
+
+button:hover {
+  filter: brightness(1.02);
+}
+
+button:active {
+  transform: translateY(1px) scale(0.995);
+}
+
+/* カードのうっすら浮く感じ */
+.float-card {
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.float-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 14px 30px rgba(50, 90, 180, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+/* タイトル文字の少しゲームっぽい強さ */
+.arcade-title {
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 10px rgba(47, 107, 255, 0.16);
+}
+
+/* キラッと感 */
+.sparkle {
+  position: relative;
+  overflow: hidden;
+}
+
+.sparkle::after {
+  content: "";
+  position: absolute;
+  top: -120%;
+  left: -30%;
+  width: 40%;
+  height: 300%;
+  transform: rotate(18deg);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.32) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  pointer-events: none;
+}
+
+.sparkle:hover::after {
+  animation: shine-sweep 0.9s ease;
+}
+
+@keyframes shine-sweep {
+  from {
+    left: -30%;
+  }
+  to {
+    left: 120%;
+  }
+}
+
+/* ちょいポップな出現 */
+.pop-in {
+  animation: pop-in 0.28s ease;
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 下部ナビ用の柔らかい影 */
+.bottom-dock {
+  box-shadow:
+    0 -6px 24px rgba(60, 90, 170, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+/* スクロールバー少し綺麗に */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c8d7ff transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #bfd1ff, #8bb0ff);
+  border-radius: 9999px;
+}
+
+/* スマホで詰まりすぎないように */
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
 }
