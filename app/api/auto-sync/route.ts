@@ -1,134 +1,151 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BASE_URL = "https://www.thesportsdb.com/api/v1/json/123";
-const NPB_LEAGUE_ID = "4591";
-
-type SportsDbEvent = {
-  idEvent?: string;
-  dateEvent?: string;
-  strTime?: string;
-  strHomeTeam?: string;
-  strAwayTeam?: string;
-  intHomeScore?: string | number | null;
-  intAwayScore?: string | number | null;
+type ParsedGame = {
+  sourceGameId: string;
+  date: string;
+  opponent: string;
+  teamScore: number;
+  opponentScore: number;
 };
 
-const TEAM_NAME_MAP: Record<string, string> = {
-  "オリックス・バファローズ": "Orix Buffaloes",
-  "阪神タイガース": "Hanshin Tigers",
-  "読売ジャイアンツ": "Yomiuri Giants",
-  "横浜DeNAベイスターズ": "Yokohama DeNA BayStars",
-  "広島東洋カープ": "Hiroshima Toyo Carp",
-  "東京ヤクルトスワローズ": "Tokyo Yakult Swallows",
-  "中日ドラゴンズ": "Chunichi Dragons",
-  "福岡ソフトバンクホークス": "Fukuoka SoftBank Hawks",
-  "北海道日本ハムファイターズ": "Hokkaido Nippon-Ham Fighters",
-  "千葉ロッテマリーンズ": "Chiba Lotte Marines",
-  "東北楽天ゴールデンイーグルス": "Tohoku Rakuten Golden Eagles",
-  "埼玉西武ライオンズ": "Saitama Seibu Lions",
+const TEAM_ALIASES: Record<string, string[]> = {
+  "オリックス・バファローズ": ["オリックス"],
+  "阪神タイガース": ["阪神"],
+  "読売ジャイアンツ": ["巨人", "読売"],
+  "横浜DeNAベイスターズ": ["DeNA", "横浜DeNA"],
+  "広島東洋カープ": ["広島"],
+  "東京ヤクルトスワローズ": ["ヤクルト"],
+  "中日ドラゴンズ": ["中日"],
+  "福岡ソフトバンクホークス": ["ソフトバンク"],
+  "北海道日本ハムファイターズ": ["日本ハム"],
+  "千葉ロッテマリーンズ": ["ロッテ"],
+  "東北楽天ゴールデンイーグルス": ["楽天"],
+  "埼玉西武ライオンズ": ["西武"],
 };
 
-const REVERSE_TEAM_NAME_MAP: Record<string, string> = Object.fromEntries(
-  Object.entries(TEAM_NAME_MAP).map(([ja, en]) => [en, ja])
+const ALIAS_TO_FULLNAME: Record<string, string> = Object.fromEntries(
+  Object.entries(TEAM_ALIASES).flatMap(([full, aliases]) =>
+    aliases.map((alias) => [alias, full])
+  )
 );
 
-const NPB_ENGLISH_NAMES = Object.values(TEAM_NAME_MAP);
+const ALL_ALIASES = Object.keys(ALIAS_TO_FULLNAME).sort(
+  (a, b) => b.length - a.length
+);
 
-function normalizeTeamName(name: string): string {
-  return TEAM_NAME_MAP[name] ?? name;
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function toJapaneseTeamName(name: string): string {
-  return REVERSE_TEAM_NAME_MAP[name] ?? name;
-}
-
-function normalizeLoose(text: string): string {
+function decodeHtml(text: string): string {
   return text
-    .toLowerCase()
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"');
+}
+
+function stripTags(html: string): string {
+  return decodeHtml(html.replace(/<[^>]*>/g, " "))
     .replace(/\s+/g, " ")
-    .replace(/-/g, " ")
-    .replace(/\./g, "")
-    .replace(/’/g, "'")
     .trim();
 }
 
-function isSameTeam(a: string, b: string): boolean {
-  const aa = normalizeLoose(a);
-  const bb = normalizeLoose(b);
-  return aa === bb || aa.includes(bb) || bb.includes(a);
+function toIsoDate(year: string, month: string, day: string): string {
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 }
 
-function isKnownNpbTeam(name: string): boolean {
-  return NPB_ENGLISH_NAMES.some((team) => isSameTeam(team, name));
+function extractPageDate(html: string): string | null {
+  const match = html.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+  if (!match) return null;
+  return toIsoDate(match[1], match[2], match[3]);
 }
 
-function parseEventTimestamp(event: SportsDbEvent): number {
-  const datePart = event.dateEvent ?? "1970-01-01";
-  const timePart = event.strTime ?? "00:00:00";
-  return new Date(`${datePart}T${timePart}`).getTime();
+function extractPrevPageUrl(html: string, currentUrl: string): string | null {
+  const match = html.match(/<a[^>]+href="([^"]+)"[^>]*>\s*前の試合\s*<\/a>/);
+  if (!match) return null;
+  return new URL(match[1], currentUrl).toString();
 }
 
-function isCompletedEvent(event: SportsDbEvent): boolean {
-  const homeScore = Number(event.intHomeScore);
-  const awayScore = Number(event.intAwayScore);
-  return !Number.isNaN(homeScore) && !Number.isNaN(awayScore);
-}
+function parseGameSummaryText(
+  text: string,
+  favoriteTeam: string,
+  date: string
+): ParsedGame | null {
+  const aliasPattern = ALL_ALIASES.map(escapeRegExp).join("|");
+  const regex = new RegExp(
+    `^(${aliasPattern})\\s+(\\d+)\\s+.*?\\s+(\\d+)\\s+(${aliasPattern})$`
+  );
 
-function isValidNpbEvent(
-  event: SportsDbEvent,
-  favoriteTeamEnglish: string
-): boolean {
-  const home = event.strHomeTeam ?? "";
-  const away = event.strAwayTeam ?? "";
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const match = normalized.match(regex);
+  if (!match) return null;
 
-  const bothAreNpbTeams = isKnownNpbTeam(home) && isKnownNpbTeam(away);
-  const involvesFavorite =
-    isSameTeam(favoriteTeamEnglish, home) || isSameTeam(favoriteTeamEnglish, away);
+  const homeAlias = match[1];
+  const homeScore = Number(match[2]);
+  const awayScore = Number(match[3]);
+  const awayAlias = match[4];
 
-  return bothAreNpbTeams && involvesFavorite;
-}
+  const homeTeam = ALIAS_TO_FULLNAME[homeAlias];
+  const awayTeam = ALIAS_TO_FULLNAME[awayAlias];
 
-async function fetchLeaguePastEvents(): Promise<SportsDbEvent[]> {
-  const url = `${BASE_URL}/eventspastleague.php?id=${NPB_LEAGUE_ID}`;
-  const res = await fetch(url, { cache: "no-store" });
+  if (!homeTeam || !awayTeam) return null;
+  if (homeTeam !== favoriteTeam && awayTeam !== favoriteTeam) return null;
 
-  if (!res.ok) {
-    return [];
-  }
-
-  const data: unknown = await res.json();
-
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "events" in data &&
-    Array.isArray((data as { events: unknown }).events)
-  ) {
-    return (data as { events: SportsDbEvent[] }).events;
-  }
-
-  return [];
-}
-
-function convertEventToGame(
-  event: SportsDbEvent,
-  favoriteTeamEnglish: string
-) {
-  const home = event.strHomeTeam ?? "";
-  const away = event.strAwayTeam ?? "";
-  const isHome = isSameTeam(favoriteTeamEnglish, home);
-
-  const teamScore = Number(isHome ? event.intHomeScore : event.intAwayScore);
-  const opponentScore = Number(isHome ? event.intAwayScore : event.intHomeScore);
-  const opponentRaw = isHome ? away : home;
+  const isHome = homeTeam === favoriteTeam;
 
   return {
-    sourceGameId: event.idEvent,
-    date: event.dateEvent,
-    opponent: toJapaneseTeamName(opponentRaw),
-    teamScore,
-    opponentScore,
+    sourceGameId: `${date}-${homeTeam}-${awayTeam}`,
+    date,
+    opponent: isHome ? awayTeam : homeTeam,
+    teamScore: isHome ? homeScore : awayScore,
+    opponentScore: isHome ? awayScore : homeScore,
   };
+}
+
+function extractGamesFromHtml(
+  html: string,
+  favoriteTeam: string,
+  pageUrl: string
+): { games: ParsedGame[]; prevUrl: string | null; date: string | null } {
+  const date = extractPageDate(html);
+  const prevUrl = extractPrevPageUrl(html, pageUrl);
+
+  if (!date) {
+    return { games: [], prevUrl, date: null };
+  }
+
+  const anchorRegex = /<a\b[^>]*>([\s\S]*?)<\/a>/gi;
+  const games: ParsedGame[] = [];
+
+  let match: RegExpExecArray | null;
+  while ((match = anchorRegex.exec(html)) !== null) {
+    const text = stripTags(match[1]);
+    const parsed = parseGameSummaryText(text, favoriteTeam, date);
+    if (parsed) {
+      games.push(parsed);
+    }
+  }
+
+  return { games, prevUrl, date };
+}
+
+async function fetchHtml(url: string): Promise<string> {
+  const res = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      "user-agent": "Mozilla/5.0",
+      "accept-language": "ja,en-US;q=0.9,en;q=0.8",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`fetch failed: ${res.status}`);
+  }
+
+  return res.text();
 }
 
 export async function GET(req: NextRequest) {
@@ -138,50 +155,65 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "team is required" }, { status: 400 });
   }
 
-  const favoriteTeamEnglish = normalizeTeamName(favoriteTeam);
+  if (!(favoriteTeam in TEAM_ALIASES)) {
+    return NextResponse.json(
+      { error: "unsupported team name" },
+      { status: 400 }
+    );
+  }
 
   try {
-    const allEvents = await fetchLeaguePastEvents();
+    const year = new Date().getFullYear();
+    let pageUrl = `https://npb.jp/bis/${year}/games/`;
 
-    const filteredEvents = allEvents.filter((event) =>
-      isValidNpbEvent(event, favoriteTeamEnglish)
-    );
+    const collectedGames: ParsedGame[] = [];
+    const seenIds = new Set<string>();
+    const visitedUrls = new Set<string>();
 
-    const completedEvents = filteredEvents
-      .filter(isCompletedEvent)
-      .filter((event, index, arr) => {
-        return arr.findIndex((e) => e.idEvent === event.idEvent) === index;
-      })
-      .sort((a, b) => parseEventTimestamp(b) - parseEventTimestamp(a));
+    for (let i = 0; i < 20; i += 1) {
+      if (visitedUrls.has(pageUrl)) break;
+      visitedUrls.add(pageUrl);
 
-    if (completedEvents.length === 0) {
+      const html = await fetchHtml(pageUrl);
+      const { games, prevUrl } = extractGamesFromHtml(html, favoriteTeam, pageUrl);
+
+      for (const game of games) {
+        if (!seenIds.has(game.sourceGameId)) {
+          seenIds.add(game.sourceGameId);
+          collectedGames.push(game);
+        }
+      }
+
+      if (collectedGames.length >= 10) break;
+      if (!prevUrl) break;
+
+      pageUrl = prevUrl;
+    }
+
+    collectedGames.sort((a, b) => {
+      const dateCompare = b.date.localeCompare(a.date);
+      if (dateCompare !== 0) return dateCompare;
+      return b.sourceGameId.localeCompare(a.sourceGameId);
+    });
+
+    if (collectedGames.length === 0) {
       return NextResponse.json({
         games: [],
-        message: "結果確定済みの試合がありません",
+        message: "NPB公式サイトから結果を取得できませんでした",
         debug: {
           favoriteTeam,
-          favoriteTeamEnglish,
-          leagueId: NPB_LEAGUE_ID,
-          allEventsCount: allEvents.length,
-          filteredCount: filteredEvents.length,
-          completedCount: 0,
+          scannedPages: visitedUrls.size,
+          lastPage: pageUrl,
         },
       });
     }
 
-    const games = completedEvents.map((event) =>
-      convertEventToGame(event, favoriteTeamEnglish)
-    );
-
     return NextResponse.json({
-      games,
+      games: collectedGames,
       debug: {
         favoriteTeam,
-        favoriteTeamEnglish,
-        leagueId: NPB_LEAGUE_ID,
-        allEventsCount: allEvents.length,
-        filteredCount: filteredEvents.length,
-        completedCount: completedEvents.length,
+        scannedPages: visitedUrls.size,
+        count: collectedGames.length,
       },
     });
   } catch (error) {
