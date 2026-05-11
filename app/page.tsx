@@ -104,8 +104,20 @@ export default function Page() {
   const [opponentScore, setOpponentScore] = useState(0);
   const [editingId, setEditingId] = useState<number | null>(null);
 
+  const [debugEnabled, setDebugEnabled] = useState(true);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
   const didInitialSyncRef = useRef(false);
   const currentGamesKey = gamesStorageKey(favoriteTeam);
+
+  function addDebugLog(message: string, payload?: unknown) {
+    const text =
+      payload === undefined
+        ? message
+        : `${message}: ${JSON.stringify(payload, null, 2)}`;
+    console.log(message, payload ?? "");
+    setDebugLogs((prev) => [`${new Date().toLocaleTimeString("ja-JP")} ${text}`, ...prev].slice(0, 30));
+  }
 
   useEffect(() => {
     const savedAmount = localStorage.getItem(STORAGE_KEYS.amount);
@@ -122,6 +134,12 @@ export default function Page() {
     if (savedLastSyncedAt) setLastSyncedAt(savedLastSyncedAt);
 
     setIsHydrated(true);
+    addDebugLog("hydrate complete", {
+      savedAmount,
+      savedTeam,
+      savedLastSavedAt,
+      savedLastSyncedAt,
+    });
   }, []);
 
   useEffect(() => {
@@ -130,12 +148,19 @@ export default function Page() {
     const savedGames = localStorage.getItem(currentGamesKey);
     if (savedGames) {
       try {
-        setGames(JSON.parse(savedGames));
+        const parsed = JSON.parse(savedGames);
+        setGames(parsed);
+        addDebugLog("loaded team games", {
+          key: currentGamesKey,
+          count: parsed.length,
+        });
       } catch {
         setGames([]);
+        addDebugLog("failed to parse team games", { key: currentGamesKey });
       }
     } else {
       setGames([]);
+      addDebugLog("no saved games for team", { key: currentGamesKey });
     }
 
     setShowAllHistory(false);
@@ -222,17 +247,24 @@ export default function Page() {
 
   async function syncLatestGame() {
     try {
+      addDebugLog("syncLatestGame start", { favoriteTeam });
       setIsSyncing(true);
       setSyncMessage("試合結果を確認中...");
 
-      const res = await fetch(
-        `/api/auto-sync?team=${encodeURIComponent(favoriteTeam)}`,
-        { cache: "no-store" }
-      );
+      const url = `/api/auto-sync?team=${encodeURIComponent(favoriteTeam)}`;
+      addDebugLog("fetch start", { url });
+
+      const res = await fetch(url, { cache: "no-store" });
 
       const now = createTimestamp();
       localStorage.setItem(STORAGE_KEYS.lastSyncedAt, now);
       setLastSyncedAt(now);
+
+      addDebugLog("fetch response", {
+        ok: res.ok,
+        status: res.status,
+        statusText: res.statusText,
+      });
 
       if (!res.ok) {
         setSyncMessage("同期に失敗しました");
@@ -240,17 +272,22 @@ export default function Page() {
       }
 
       const data = await res.json();
+      addDebugLog("sync response", data);
+
       const incomingGames = data?.games ?? [];
 
       if (incomingGames.length === 0) {
         setSyncMessage(data?.message ?? "新しい試合結果はありません");
+        addDebugLog("incomingGames empty", data);
         return;
       }
 
       setGames((prev) => {
+        addDebugLog("prev games count", { count: prev.length });
+
         const newItems: Game[] = incomingGames
           .filter((incoming: any) => {
-            return !prev.some((g) => {
+            const exists = prev.some((g) => {
               if (incoming.sourceGameId && g.sourceGameId) {
                 return g.sourceGameId === incoming.sourceGameId;
               }
@@ -261,6 +298,13 @@ export default function Page() {
                 g.opponentScore === incoming.opponentScore
               );
             });
+
+            addDebugLog("dedupe check", {
+              incoming,
+              exists,
+            });
+
+            return !exists;
           })
           .map((incoming: any, index: number) => {
             const result = getResult(incoming.teamScore, incoming.opponentScore);
@@ -283,6 +327,8 @@ export default function Page() {
             };
           });
 
+        addDebugLog("newItems", newItems);
+
         if (newItems.length === 0) {
           setSyncMessage("最新の試合結果はすべて反映済みです");
           return prev;
@@ -290,20 +336,27 @@ export default function Page() {
 
         setSyncMessage(`${newItems.length}件の試合結果を反映しました`);
 
-        return [...newItems, ...prev].sort((a, b) => {
+        const merged = [...newItems, ...prev].sort((a, b) => {
           const dateCompare = b.date.localeCompare(a.date);
           if (dateCompare !== 0) return dateCompare;
           return b.id - a.id;
         });
+
+        addDebugLog("merged games count", { count: merged.length });
+        return merged;
       });
     } catch (error) {
-      console.error(error);
+      console.error("sync error", error);
+      addDebugLog("sync error", {
+        message: error instanceof Error ? error.message : String(error),
+      });
       const now = createTimestamp();
       localStorage.setItem(STORAGE_KEYS.lastSyncedAt, now);
       setLastSyncedAt(now);
       setSyncMessage("同期に失敗しました");
     } finally {
       setIsSyncing(false);
+      addDebugLog("syncLatestGame end");
     }
   }
 
@@ -312,10 +365,12 @@ export default function Page() {
 
     if (!didInitialSyncRef.current) {
       didInitialSyncRef.current = true;
+      addDebugLog("initial auto sync");
       void syncLatestGame();
       return;
     }
 
+    addDebugLog("team changed auto sync", { favoriteTeam });
     void syncLatestGame();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [favoriteTeam, isHydrated]);
@@ -328,6 +383,7 @@ export default function Page() {
     localStorage.setItem(STORAGE_KEYS.lastSavedAt, now);
     setLastSavedAt(now);
     setSyncMessage("保存しました");
+    addDebugLog("manual save", { key: currentGamesKey, count: games.length });
   }
 
   function resetForm() {
@@ -336,10 +392,14 @@ export default function Page() {
     setTeamScore(0);
     setOpponentScore(0);
     setEditingId(null);
+    addDebugLog("form reset");
   }
 
   function saveGame() {
-    if (!opponent.trim()) return;
+    if (!opponent.trim()) {
+      addDebugLog("saveGame blocked", { reason: "opponent empty" });
+      return;
+    }
 
     const result = getResult(teamScore, opponentScore);
     const savedAmount =
@@ -365,6 +425,7 @@ export default function Page() {
             : game
         )
       );
+      addDebugLog("game updated", { editingId, date, opponent, teamScore, opponentScore, result });
     } else {
       const newGame: Game = {
         id: Date.now(),
@@ -376,6 +437,7 @@ export default function Page() {
         savedAmount,
       };
       setGames((prev) => [newGame, ...prev]);
+      addDebugLog("game added", newGame);
     }
 
     resetForm();
@@ -383,6 +445,7 @@ export default function Page() {
 
   function deleteGame(id: number) {
     setGames((prev) => prev.filter((g) => g.id !== id));
+    addDebugLog("game deleted", { id });
     if (editingId === id) resetForm();
   }
 
@@ -392,6 +455,7 @@ export default function Page() {
     setOpponent(game.opponent);
     setTeamScore(game.teamScore);
     setOpponentScore(game.opponentScore);
+    addDebugLog("start edit", game);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -410,6 +474,7 @@ export default function Page() {
     setLastSavedAt("");
     setLastSyncedAt("");
     setSyncMessage("");
+    addDebugLog("reset all data");
     resetForm();
   }
 
@@ -586,7 +651,14 @@ export default function Page() {
                 )}
 
                 <div className="mini-actions">
-                  <button className="small-outline" onClick={() => void syncLatestGame()} disabled={isSyncing}>
+                  <button
+                    className="small-outline"
+                    onClick={() => {
+                      addDebugLog("sync button clicked");
+                      void syncLatestGame();
+                    }}
+                    disabled={isSyncing}
+                  >
                     {isSyncing ? "同期中..." : "同期"}
                   </button>
                   <button className="small-outline" onClick={saveToLocalStorage}>
@@ -603,6 +675,69 @@ export default function Page() {
                 <p className="meta-message emphasis">今回の加算予定: {yen(currentSavedAmount)}</p>
               </div>
             </section>
+
+            {debugEnabled && (
+              <section className="white-card">
+                <div className="section-header">
+                  <h3>デバッグ表示</h3>
+                  <div className="mini-actions" style={{ marginTop: 0 }}>
+                    <button
+                      className="small-outline"
+                      onClick={() => setDebugLogs([])}
+                    >
+                      クリア
+                    </button>
+                    <button
+                      className="small-outline"
+                      onClick={() => setDebugEnabled(false)}
+                    >
+                      非表示
+                    </button>
+                  </div>
+                </div>
+
+                <div className="empty-box" style={{ textAlign: "left" }}>
+                  <p><strong>現在の球団:</strong> {favoriteTeam}</p>
+                  <p><strong>保存キー:</strong> {currentGamesKey}</p>
+                  <p><strong>試合数:</strong> {games.length}</p>
+                  <p><strong>同期中:</strong> {String(isSyncing)}</p>
+                  <p><strong>最終同期:</strong> {lastSyncedAt || "未同期"}</p>
+                  <p><strong>最終保存:</strong> {lastSavedAt || "未保存"}</p>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 12,
+                    maxHeight: 320,
+                    overflow: "auto",
+                    border: "1px solid #e7e9ef",
+                    borderRadius: 12,
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                    padding: 12,
+                    fontSize: 12,
+                    whiteSpace: "pre-wrap",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {debugLogs.length === 0 ? "ログはまだありません" : debugLogs.join("\n\n")}
+                </div>
+              </section>
+            )}
+
+            {!debugEnabled && (
+              <section className="white-card">
+                <div className="section-header">
+                  <h3>デバッグ表示</h3>
+                </div>
+                <button
+                  className="small-outline"
+                  onClick={() => setDebugEnabled(true)}
+                >
+                  デバッグを再表示
+                </button>
+              </section>
+            )}
           </div>
 
           <div className="responsive-main-grid__right">
