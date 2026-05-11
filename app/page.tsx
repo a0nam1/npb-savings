@@ -13,7 +13,6 @@ type Game = {
   opponentScore: number;
   result: GameResult;
   savedAmount: number;
-  note?: string;
 };
 
 type TeamInfo = {
@@ -77,10 +76,6 @@ function createTimestamp() {
   });
 }
 
-function teamByName(name: string) {
-  return teams.find((team) => team.name === name) ?? teams[0];
-}
-
 function averageSavings(games: Game[]) {
   if (games.length === 0) return 0;
   return Math.round(games.reduce((sum, game) => sum + game.savedAmount, 0) / games.length);
@@ -101,6 +96,7 @@ export default function Page() {
   const [syncMessage, setSyncMessage] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [opponent, setOpponent] = useState("");
@@ -142,6 +138,7 @@ export default function Page() {
       setGames([]);
     }
 
+    setShowAllHistory(false);
     setSyncMessage("");
     setEditingId(null);
     setOpponent("");
@@ -183,6 +180,8 @@ export default function Page() {
       }),
     [games]
   );
+
+  const visibleGames = showAllHistory ? sortedGames : sortedGames.slice(0, 5);
 
   const totalSavings = useMemo(
     () => games.reduce((sum, game) => sum + game.savedAmount, 0),
@@ -610,8 +609,12 @@ export default function Page() {
             <section className="white-card">
               <div className="section-header">
                 <h3>試合履歴</h3>
-                <button className="section-link" type="button">
-                  すべて見る ›
+                <button
+                  className="section-link"
+                  type="button"
+                  onClick={() => setShowAllHistory((prev) => !prev)}
+                >
+                  {showAllHistory ? "閉じる" : "すべてを見る ›"}
                 </button>
               </div>
 
@@ -619,7 +622,7 @@ export default function Page() {
                 <div className="empty-box">まだ試合が登録されていません</div>
               ) : (
                 <div className="history-list">
-                  {sortedGames.slice(0, 8).map((game) => (
+                  {visibleGames.map((game) => (
                     <div key={game.id} className="history-line">
                       <div className="history-line__left">
                         <p className="history-date">{game.date}</p>
