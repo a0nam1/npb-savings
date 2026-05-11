@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const BASE_URL = "https://www.thesportsdb.com/api/v1/json/123";
-const LEAGUE_NAME = "Nippon Baseball League";
-const SPORT_NAME = "Baseball";
+const NPB_LEAGUE_ID = "4591";
+
+type SportsDbEvent = {
+  idEvent?: string;
+  dateEvent?: string;
+  strTime?: string;
+  strHomeTeam?: string;
+  strAwayTeam?: string;
+  intHomeScore?: string | number | null;
+  intAwayScore?: string | number | null;
+};
 
 const TEAM_NAME_MAP: Record<string, string> = {
   "オリックス・バファローズ": "Orix Buffaloes",
@@ -25,15 +34,15 @@ const REVERSE_TEAM_NAME_MAP: Record<string, string> = Object.fromEntries(
 
 const NPB_ENGLISH_NAMES = Object.values(TEAM_NAME_MAP);
 
-function normalizeTeamName(name: string) {
+function normalizeTeamName(name: string): string {
   return TEAM_NAME_MAP[name] ?? name;
 }
 
-function toJapaneseTeamName(name: string) {
+function toJapaneseTeamName(name: string): string {
   return REVERSE_TEAM_NAME_MAP[name] ?? name;
 }
 
-function normalizeLoose(text: string) {
+function normalizeLoose(text: string): string {
   return text
     .toLowerCase()
     .replace(/\s+/g, " ")
@@ -43,76 +52,79 @@ function normalizeLoose(text: string) {
     .trim();
 }
 
-function isSameTeam(a: string, b: string) {
+function isSameTeam(a: string, b: string): boolean {
   const aa = normalizeLoose(a);
   const bb = normalizeLoose(b);
   return aa === bb || aa.includes(bb) || bb.includes(a);
 }
 
-function isKnownNpbTeam(name: string) {
+function isKnownNpbTeam(name: string): boolean {
   return NPB_ENGLISH_NAMES.some((team) => isSameTeam(team, name));
 }
 
-function formatDate(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function parseEventTimestamp(event: any) {
-  const datePart = event?.dateEvent ?? "1970-01-01";
-  const timePart = event?.strTime ?? "00:00:00";
+function parseEventTimestamp(event: SportsDbEvent): number {
+  const datePart = event.dateEvent ?? "1970-01-01";
+  const timePart = event.strTime ?? "00:00:00";
   return new Date(`${datePart}T${timePart}`).getTime();
 }
 
-function isCompletedEvent(event: any) {
-  const homeScore = Number(event?.intHomeScore);
-  const awayScore = Number(event?.intAwayScore);
+function isCompletedEvent(event: SportsDbEvent): boolean {
+  const homeScore = Number(event.intHomeScore);
+  const awayScore = Number(event.intAwayScore);
   return !Number.isNaN(homeScore) && !Number.isNaN(awayScore);
 }
 
-function isValidNpbEvent(event: any, favoriteTeamEnglish: string) {
-  const home = event?.strHomeTeam ?? "";
-  const away = event?.strAwayTeam ?? "";
-  const league = event?.strLeague ?? "";
-  const sport = event?.strSport ?? "";
+function isValidNpbEvent(
+  event: SportsDbEvent,
+  favoriteTeamEnglish: string
+): boolean {
+  const home = event.strHomeTeam ?? "";
+  const away = event.strAwayTeam ?? "";
 
-  const leagueOk =
-    normalizeLoose(league) === normalizeLoose(LEAGUE_NAME) || league.includes("Nippon");
-  const sportOk =
-    normalizeLoose(sport) === normalizeLoose(SPORT_NAME) || sport.includes("Baseball");
   const bothAreNpbTeams = isKnownNpbTeam(home) && isKnownNpbTeam(away);
   const involvesFavorite =
     isSameTeam(favoriteTeamEnglish, home) || isSameTeam(favoriteTeamEnglish, away);
 
-  return leagueOk && sportOk && bothAreNpbTeams && involvesFavorite;
+  return bothAreNpbTeams && involvesFavorite;
 }
 
-async function fetchLeagueDayEvents(date: string) {
-  const url =
-    `${BASE_URL}/eventsday.php?d=${date}` +
-    `&s=${encodeURIComponent(SPORT_NAME)}` +
-    `&l=${encodeURIComponent(LEAGUE_NAME)}`;
-
+async function fetchLeaguePastEvents(): Promise<SportsDbEvent[]> {
+  const url = `${BASE_URL}/eventspastleague.php?id=${NPB_LEAGUE_ID}`;
   const res = await fetch(url, { cache: "no-store" });
+
   if (!res.ok) {
     return [];
   }
 
-  const data = await res.json();
-  return data?.events ?? [];
+  const data: unknown = await res.json();
+
+  if (
+    typeof data === "object" &&
+    data !== null &&
+    "events" in data &&
+    Array.isArray((data as { events: unknown }).events)
+  ) {
+    return (data as { events: SportsDbEvent[] }).events;
+  }
+
+  return [];
 }
 
-function convertEventToGame(event: any, favoriteTeamEnglish: string) {
-  const home = event?.strHomeTeam ?? "";
-  const away = event?.strAwayTeam ?? "";
+function convertEventToGame(
+  event: SportsDbEvent,
+  favoriteTeamEnglish: string
+) {
+  const home = event.strHomeTeam ?? "";
+  const away = event.strAwayTeam ?? "";
   const isHome = isSameTeam(favoriteTeamEnglish, home);
 
-  const teamScore = Number(isHome ? event?.intHomeScore : event?.intAwayScore);
-  const opponentScore = Number(isHome ? event?.intAwayScore : event?.intHomeScore);
+  const teamScore = Number(isHome ? event.intHomeScore : event.intAwayScore);
+  const opponentScore = Number(isHome ? event.intAwayScore : event.intHomeScore);
   const opponentRaw = isHome ? away : home;
 
   return {
-    sourceGameId: event?.idEvent,
-    date: event?.dateEvent,
+    sourceGameId: event.idEvent,
+    date: event.dateEvent,
     opponent: toJapaneseTeamName(opponentRaw),
     teamScore,
     opponentScore,
@@ -129,21 +141,7 @@ export async function GET(req: NextRequest) {
   const favoriteTeamEnglish = normalizeTeamName(favoriteTeam);
 
   try {
-    const today = new Date();
-
-    // 必要に応じて 30〜90 で調整可能
-    const dates = Array.from({ length: 60 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      return formatDate(d);
-    });
-
-    const allEvents: any[] = [];
-
-    for (const date of dates) {
-      const dayEvents = await fetchLeagueDayEvents(date);
-      allEvents.push(...dayEvents);
-    }
+    const allEvents = await fetchLeaguePastEvents();
 
     const filteredEvents = allEvents.filter((event) =>
       isValidNpbEvent(event, favoriteTeamEnglish)
@@ -152,7 +150,7 @@ export async function GET(req: NextRequest) {
     const completedEvents = filteredEvents
       .filter(isCompletedEvent)
       .filter((event, index, arr) => {
-        return arr.findIndex((e) => e?.idEvent === event?.idEvent) === index;
+        return arr.findIndex((e) => e.idEvent === event.idEvent) === index;
       })
       .sort((a, b) => parseEventTimestamp(b) - parseEventTimestamp(a));
 
@@ -163,7 +161,7 @@ export async function GET(req: NextRequest) {
         debug: {
           favoriteTeam,
           favoriteTeamEnglish,
-          scannedDays: dates.length,
+          leagueId: NPB_LEAGUE_ID,
           allEventsCount: allEvents.length,
           filteredCount: filteredEvents.length,
           completedCount: 0,
@@ -180,7 +178,7 @@ export async function GET(req: NextRequest) {
       debug: {
         favoriteTeam,
         favoriteTeamEnglish,
-        scannedDays: dates.length,
+        leagueId: NPB_LEAGUE_ID,
         allEventsCount: allEvents.length,
         filteredCount: filteredEvents.length,
         completedCount: completedEvents.length,
