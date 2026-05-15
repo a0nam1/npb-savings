@@ -20,6 +20,54 @@ type TeamInfo = {
   short: string;
 };
 
+type TodayGameInfo = {
+  today: {
+    hasGame: boolean;
+    date: string;
+    opponent: string;
+    venue: string;
+    startTime: string;
+    note?: string;
+  };
+  tomorrowStarter: {
+    hasAnnouncement: boolean;
+    date: string;
+    opponent: string;
+    venue: string;
+    startTime: string;
+    favoriteStarter: string;
+    opponentStarter: string;
+    note?: string;
+  };
+  debug?: {
+    team: string;
+    year: number;
+    month: number;
+    todaySource: "monthly-detail" | "none";
+    tomorrowSource: "starter" | "monthly-detail" | "none";
+  };
+};
+
+type TopicInfo = {
+  ok: boolean;
+  topic: {
+    videoId: string;
+    title: string;
+    publishedAt: string;
+    thumbnailUrl: string;
+    channelTitle: string;
+    watchUrl: string;
+    embedUrl: string;
+  } | null;
+  debug?: {
+    team: string;
+    query: string;
+    usedKeywords: string[];
+    itemCount: number;
+    reason?: string;
+  };
+};
+
 const teams: TeamInfo[] = [
   { name: "オリックス・バファローズ", short: "オリ" },
   { name: "阪神タイガース", short: "阪神" },
@@ -81,15 +129,24 @@ function averageSavings(games: Game[]) {
   return Math.round(games.reduce((sum, game) => sum + game.savedAmount, 0) / games.length);
 }
 
-function winRate(games: Game[]) {
-  if (games.length === 0) return 0;
-  const wins = games.filter((g) => g.result === "win").length;
-  return Math.round((wins / games.length) * 1000) / 1000;
+function formatPublishedAt(value: string) {
+  if (!value) return "";
+  try {
+    return new Date(value).toLocaleString("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return value;
+  }
 }
 
 export default function Page() {
   const [favoriteTeam, setFavoriteTeam] = useState("オリックス・バファローズ");
-  const [amountPerWin, setAmountPerWin] = useState(3000);
+  const [amountPerWin, setAmountPerWin] = useState(1500);
   const [games, setGames] = useState<Game[]>([]);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [lastSyncedAt, setLastSyncedAt] = useState("");
@@ -97,6 +154,12 @@ export default function Page() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
+
+  const [todayGame, setTodayGame] = useState<TodayGameInfo | null>(null);
+  const [todayGameLoading, setTodayGameLoading] = useState(false);
+
+  const [topicInfo, setTopicInfo] = useState<TopicInfo | null>(null);
+  const [topicLoading, setTopicLoading] = useState(false);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [opponent, setOpponent] = useState("");
@@ -116,7 +179,7 @@ export default function Page() {
         ? message
         : `${message}: ${JSON.stringify(payload, null, 2)}`;
     console.log(message, payload ?? "");
-    setDebugLogs((prev) => [`${new Date().toLocaleTimeString("ja-JP")} ${text}`, ...prev].slice(0, 30));
+    setDebugLogs((prev) => [`${new Date().toLocaleTimeString("ja-JP")} ${text}`, ...prev].slice(0, 50));
   }
 
   useEffect(() => {
@@ -150,10 +213,7 @@ export default function Page() {
       try {
         const parsed = JSON.parse(savedGames);
         setGames(parsed);
-        addDebugLog("loaded team games", {
-          key: currentGamesKey,
-          count: parsed.length,
-        });
+        addDebugLog("loaded team games", { key: currentGamesKey, count: parsed.length });
       } catch {
         setGames([]);
         addDebugLog("failed to parse team games", { key: currentGamesKey });
@@ -203,14 +263,14 @@ export default function Page() {
         if (dateCompare !== 0) return dateCompare;
         return b.id - a.id;
       }),
-    [games]
+    [games],
   );
 
   const visibleGames = showAllHistory ? sortedGames : sortedGames.slice(0, 5);
 
   const totalSavings = useMemo(
     () => games.reduce((sum, game) => sum + game.savedAmount, 0),
-    [games]
+    [games],
   );
 
   const winCount = useMemo(() => games.filter((g) => g.result === "win").length, [games]);
@@ -222,8 +282,8 @@ export default function Page() {
     currentResult === "win"
       ? amountPerWin
       : currentResult === "draw"
-      ? Math.floor(amountPerWin / 2)
-      : 0;
+        ? Math.floor(amountPerWin / 2)
+        : 0;
 
   const monthlySummary = useMemo(() => {
     const grouped = new Map<string, { savings: number; wins: number; loses: number; draws: number }>();
@@ -243,7 +303,57 @@ export default function Page() {
       .map(([month, value]) => ({ month, ...value }));
   }, [games]);
 
-  const currentMonth = monthlySummary[0];
+  async function fetchTodayGame(team: string) {
+    try {
+      setTodayGameLoading(true);
+      addDebugLog("fetchTodayGame start", { team });
+
+      const res = await fetch(`/api/today-game?team=${encodeURIComponent(team)}`, {
+        cache: "no-store",
+      });
+      const data: TodayGameInfo = await res.json();
+
+      setTodayGame(data);
+      addDebugLog("fetchTodayGame response", data);
+    } catch (error) {
+      console.error("fetchTodayGame error:", error);
+      addDebugLog("fetchTodayGame error", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setTodayGame(null);
+    } finally {
+      setTodayGameLoading(false);
+    }
+  }
+
+  async function fetchTopics(team: string) {
+    try {
+      setTopicLoading(true);
+      addDebugLog("fetchTopics start", { team });
+
+      const res = await fetch(`/api/topics?team=${encodeURIComponent(team)}`, {
+        cache: "no-store",
+      });
+      const data: TopicInfo = await res.json();
+
+      setTopicInfo(data);
+      addDebugLog("fetchTopics response", data);
+    } catch (error) {
+      console.error("fetchTopics error:", error);
+      addDebugLog("fetchTopics error", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setTopicInfo(null);
+    } finally {
+      setTopicLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    void fetchTodayGame(favoriteTeam);
+    void fetchTopics(favoriteTeam);
+  }, [favoriteTeam, isHydrated]);
 
   async function syncLatestGame() {
     try {
@@ -251,7 +361,7 @@ export default function Page() {
       setIsSyncing(true);
       setSyncMessage("試合結果を確認中...");
 
-      const url = `/api/auto-sync?team=${encodeURIComponent(favoriteTeam)}`;
+      const url = `/api/auto-sync?team=${encodeURIComponent(favoriteTeam)}&season=2026`;
       addDebugLog("fetch start", { url });
 
       const res = await fetch(url, { cache: "no-store" });
@@ -299,11 +409,7 @@ export default function Page() {
               );
             });
 
-            addDebugLog("dedupe check", {
-              incoming,
-              exists,
-            });
-
+            addDebugLog("dedupe check", { incoming, exists });
             return !exists;
           })
           .map((incoming: any, index: number) => {
@@ -312,8 +418,8 @@ export default function Page() {
               result === "win"
                 ? amountPerWin
                 : result === "draw"
-                ? Math.floor(amountPerWin / 2)
-                : 0;
+                  ? Math.floor(amountPerWin / 2)
+                  : 0;
 
             return {
               id: Date.now() + index,
@@ -346,7 +452,7 @@ export default function Page() {
         return merged;
       });
     } catch (error) {
-      console.error("sync error", error);
+      console.error(error);
       addDebugLog("sync error", {
         message: error instanceof Error ? error.message : String(error),
       });
@@ -406,8 +512,8 @@ export default function Page() {
       result === "win"
         ? amountPerWin
         : result === "draw"
-        ? Math.floor(amountPerWin / 2)
-        : 0;
+          ? Math.floor(amountPerWin / 2)
+          : 0;
 
     if (editingId !== null) {
       setGames((prev) =>
@@ -422,8 +528,8 @@ export default function Page() {
                 result,
                 savedAmount,
               }
-            : game
-        )
+            : game,
+        ),
       );
       addDebugLog("game updated", { editingId, date, opponent, teamScore, opponentScore, result });
     } else {
@@ -469,11 +575,13 @@ export default function Page() {
     localStorage.removeItem(STORAGE_KEYS.lastSyncedAt);
 
     setFavoriteTeam("オリックス・バファローズ");
-    setAmountPerWin(3000);
+    setAmountPerWin(1500);
     setGames([]);
     setLastSavedAt("");
     setLastSyncedAt("");
     setSyncMessage("");
+    setTodayGame(null);
+    setTopicInfo(null);
     addDebugLog("reset all data");
     resetForm();
   }
@@ -509,7 +617,17 @@ export default function Page() {
               <h2>{yen(totalSavings)}</h2>
             </div>
 
-            <div className="pill-dark">1 勝 {yen(amountPerWin)}</div>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
+                alignItems: "center",
+              }}
+            >
+              <div className="pill-dark">1 勝 {yen(amountPerWin)}</div>
+            </div>
           </div>
 
           <div className="stats-strip">
@@ -532,29 +650,202 @@ export default function Page() {
           <div className="responsive-main-grid__left">
             <section className="white-card">
               <div className="section-header">
-                <h3>今回の加算予定</h3>
+                <h3>試合</h3>
               </div>
 
-              <div className="bonus-stack">
-                <div className="bonus-card muted">
-                  <div className="bonus-card__icon gray">⊖</div>
-                  <div className="bonus-card__main">
-                    <p className="bonus-card__title">引き分け</p>
-                    <p className="bonus-card__sub">追加予定：¥0</p>
-                  </div>
-                </div>
+              {todayGameLoading ? (
+                <div className="empty-box">試合情報を読み込み中...</div>
+              ) : !todayGame ? (
+                <div className="empty-box">試合情報を取得できませんでした。</div>
+              ) : (
+                <>
+                  <div className="game-scroll-wrap">
+                    <div className="game-scroll-track">
+                      <article className="game-slide game-slide--today">
+                        <div className="game-slide__badge">TODAY</div>
 
-                <div className="bonus-arrow">↑</div>
+                        {todayGame.today.hasGame ? (
+                          <>
+                            <div className="game-slide__title">本日の試合</div>
+                            <div className="game-slide__match">vs {todayGame.today.opponent}</div>
 
-                <div className="bonus-card active">
-                  <div className="bonus-card__icon gold">🏆</div>
-                  <div className="bonus-card__main">
-                    <p className="bonus-card__title strong">勝利</p>
-                    <p className="bonus-card__sub strong">追加予定：{yen(amountPerWin)}</p>
+                            <div className="game-info-grid">
+                              <div className="game-info-box">
+                                <div className="game-info-box__label">開催場所</div>
+                                <div className="game-info-box__value">
+                                  {todayGame.today.venue || "未定"}
+                                </div>
+                              </div>
+
+                              <div className="game-info-box">
+                                <div className="game-info-box__label">開始時刻</div>
+                                <div className="game-info-box__value">
+                                  {todayGame.today.startTime || "--:--"}
+                                </div>
+                              </div>
+                            </div>
+
+                            {todayGame.today.note ? (
+                              <div className="game-slide__note">{todayGame.today.note}</div>
+                            ) : null}
+                          </>
+                        ) : (
+                          <>
+                            <div className="game-slide__title">本日の試合</div>
+                            <div className="game-slide__empty">本日は試合予定がありません</div>
+                            {todayGame.today.note ? (
+                              <div className="game-slide__note">{todayGame.today.note}</div>
+                            ) : null}
+                          </>
+                        )}
+                      </article>
+
+                      <article className="game-slide game-slide--tomorrow">
+                        <div className="game-slide__badge">TOMORROW</div>
+
+                        <div className="game-slide__title">翌日の試合</div>
+
+                        {todayGame.tomorrowStarter.hasAnnouncement ? (
+                          <>
+                            <div className="game-slide__match">
+                              vs {todayGame.tomorrowStarter.opponent}
+                            </div>
+
+                            <div className="game-info-grid">
+                              <div className="game-info-box">
+                                <div className="game-info-box__label">開催場所</div>
+                                <div className="game-info-box__value">
+                                  {todayGame.tomorrowStarter.venue || "未定"}
+                                </div>
+                              </div>
+
+                              <div className="game-info-box">
+                                <div className="game-info-box__label">開始時刻</div>
+                                <div className="game-info-box__value">
+                                  {todayGame.tomorrowStarter.startTime || "--:--"}
+                                </div>
+                              </div>
+                            </div>
+
+                            {todayGame.tomorrowStarter.note ? (
+                              <div className="game-slide__note">
+                                {todayGame.tomorrowStarter.note}
+                              </div>
+                            ) : null}
+                          </>
+                        ) : (
+                          <>
+                            <div className="game-slide__empty">翌日は試合予定がありません</div>
+
+                            {todayGame.tomorrowStarter.note ? (
+                              <div className="game-slide__note">
+                                {todayGame.tomorrowStarter.note}
+                              </div>
+                            ) : null}
+                          </>
+                        )}
+                      </article>
+                    </div>
                   </div>
-                  <div className="bonus-card__amount">{yen(amountPerWin)}</div>
-                </div>
+
+                  <div className="game-scroll-hint">横にスワイプして確認</div>
+                </>
+              )}
+            </section>
+
+            <section className="white-card">
+              <div className="section-header">
+                <h3>今日のトピックス</h3>
               </div>
+
+              {topicLoading ? (
+                <div className="empty-box">トピックスを読み込み中...</div>
+              ) : !topicInfo?.topic ? (
+                <div className="empty-box">
+                  <div style={{ fontWeight: 800, marginBottom: 8 }}>動画が見つかりませんでした</div>
+                  <div style={{ color: "#7b8598", fontSize: 14 }}>
+                    {topicInfo?.debug?.reason ?? "YouTubeのハイライトを取得できませんでした。"}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 14 }}>
+                  <div
+                    style={{
+                      position: "relative",
+                      width: "100%",
+                      paddingTop: "56.25%",
+                      borderRadius: 18,
+                      overflow: "hidden",
+                      background: "#0f172a",
+                    }}
+                  >
+                    <iframe
+                      src={topicInfo.topic.embedUrl}
+                      title={topicInfo.topic.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        border: "none",
+                      }}
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      border: "1px solid #e7e9ef",
+                      borderRadius: 18,
+                      background: "#fff",
+                      padding: 14,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 800,
+                        color: "#2f66d8",
+                        marginBottom: 8,
+                      }}
+                    >
+                      PACIFIC LEAGUE TV
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 900,
+                        lineHeight: 1.5,
+                        color: "#1f2a44",
+                        marginBottom: 10,
+                      }}
+                    >
+                      {topicInfo.topic.title}
+                    </div>
+
+                    <div style={{ fontSize: 13, color: "#6c7890", marginBottom: 12 }}>
+                      公開日時: {formatPublishedAt(topicInfo.topic.publishedAt)}
+                    </div>
+
+                    <a
+                      href={topicInfo.topic.watchUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="small-outline"
+                      style={{
+                        display: "inline-flex",
+                        textDecoration: "none",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      YouTubeで見る
+                    </a>
+                  </div>
+                </div>
+              )}
             </section>
 
             <section className="white-card">
@@ -681,16 +972,10 @@ export default function Page() {
                 <div className="section-header">
                   <h3>デバッグ表示</h3>
                   <div className="mini-actions" style={{ marginTop: 0 }}>
-                    <button
-                      className="small-outline"
-                      onClick={() => setDebugLogs([])}
-                    >
+                    <button className="small-outline" onClick={() => setDebugLogs([])}>
                       クリア
                     </button>
-                    <button
-                      className="small-outline"
-                      onClick={() => setDebugEnabled(false)}
-                    >
+                    <button className="small-outline" onClick={() => setDebugEnabled(false)}>
                       非表示
                     </button>
                   </div>
@@ -703,24 +988,113 @@ export default function Page() {
                   <p><strong>同期中:</strong> {String(isSyncing)}</p>
                   <p><strong>最終同期:</strong> {lastSyncedAt || "未同期"}</p>
                   <p><strong>最終保存:</strong> {lastSavedAt || "未保存"}</p>
+                  <p><strong>本日の試合:</strong> {todayGame?.today?.hasGame ? "あり" : "なし"}</p>
+                  <p><strong>今日の取得元:</strong> {todayGame?.debug?.todaySource ?? "未取得"}</p>
+                  <p><strong>翌日の試合:</strong> {todayGame?.tomorrowStarter?.hasAnnouncement ? "あり" : "なし"}</p>
+                  <p><strong>翌日の取得元:</strong> {todayGame?.debug?.tomorrowSource ?? "未取得"}</p>
+                  <p><strong>トピックス動画:</strong> {topicInfo?.topic ? "あり" : "なし"}</p>
                 </div>
 
                 <div
                   style={{
                     marginTop: 12,
-                    maxHeight: 320,
-                    overflow: "auto",
                     border: "1px solid #e7e9ef",
                     borderRadius: 12,
                     background: "#0f172a",
                     color: "#e2e8f0",
                     padding: 12,
-                    fontSize: 12,
-                    whiteSpace: "pre-wrap",
-                    lineHeight: 1.5,
                   }}
                 >
-                  {debugLogs.length === 0 ? "ログはまだありません" : debugLogs.join("\n\n")}
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 800,
+                      marginBottom: 10,
+                      color: "#93c5fd",
+                    }}
+                  >
+                    todayGame JSON
+                  </div>
+
+                  <div
+                    style={{
+                      maxHeight: 220,
+                      overflow: "auto",
+                      fontSize: 12,
+                      whiteSpace: "pre-wrap",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {todayGame ? JSON.stringify(todayGame, null, 2) : "todayGame はまだありません"}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 12,
+                    border: "1px solid #e7e9ef",
+                    borderRadius: 12,
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                    padding: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 800,
+                      marginBottom: 10,
+                      color: "#93c5fd",
+                    }}
+                  >
+                    topicInfo JSON
+                  </div>
+
+                  <div
+                    style={{
+                      maxHeight: 220,
+                      overflow: "auto",
+                      fontSize: 12,
+                      whiteSpace: "pre-wrap",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {topicInfo ? JSON.stringify(topicInfo, null, 2) : "topicInfo はまだありません"}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 12,
+                    border: "1px solid #e7e9ef",
+                    borderRadius: 12,
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                    padding: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 800,
+                      marginBottom: 10,
+                      color: "#93c5fd",
+                    }}
+                  >
+                    debug logs
+                  </div>
+
+                  <div
+                    style={{
+                      maxHeight: 320,
+                      overflow: "auto",
+                      fontSize: 12,
+                      whiteSpace: "pre-wrap",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {debugLogs.length === 0 ? "ログはまだありません" : debugLogs.join("\n\n")}
+                  </div>
                 </div>
               </section>
             )}
@@ -730,10 +1104,7 @@ export default function Page() {
                 <div className="section-header">
                   <h3>デバッグ表示</h3>
                 </div>
-                <button
-                  className="small-outline"
-                  onClick={() => setDebugEnabled(true)}
-                >
+                <button className="small-outline" onClick={() => setDebugEnabled(true)}>
                   デバッグを再表示
                 </button>
               </section>
@@ -787,29 +1158,46 @@ export default function Page() {
                 <h3>月別集計</h3>
               </div>
 
-              {currentMonth ? (
-                <div className="monthly-table">
-                  <div className="monthly-table__month">{currentMonth.month.replace("-", "年")}月</div>
-                  <div>
-                    <span>貯金額</span>
-                    <strong>{yen(currentMonth.savings)}</strong>
-                  </div>
-                  <div>
-                    <span>勝</span>
-                    <strong>{currentMonth.wins}</strong>
-                  </div>
-                  <div>
-                    <span>敗</span>
-                    <strong>{currentMonth.loses}</strong>
-                  </div>
-                  <div>
-                    <span>分</span>
-                    <strong>{currentMonth.draws}</strong>
-                  </div>
-                  <div>
-                    <span>勝率</span>
-                    <strong>{winRate(games).toFixed(3)}</strong>
-                  </div>
+              {monthlySummary.length > 0 ? (
+                <div style={{ display: "grid", gap: 14 }}>
+                  {monthlySummary.map((month) => {
+                    const monthGames = games.filter((game) => monthKey(game.date) === month.month);
+                    const monthWinRate =
+                      monthGames.length === 0
+                        ? 0
+                        : Math.round(
+                            (monthGames.filter((g) => g.result === "win").length / monthGames.length) *
+                              1000,
+                          ) / 1000;
+
+                    return (
+                      <div key={month.month} className="monthly-table">
+                        <div className="monthly-table__month">
+                          {month.month.replace("-", "年")}月
+                        </div>
+                        <div>
+                          <span>貯金額</span>
+                          <strong>{yen(month.savings)}</strong>
+                        </div>
+                        <div>
+                          <span>勝</span>
+                          <strong>{month.wins}</strong>
+                        </div>
+                        <div>
+                          <span>敗</span>
+                          <strong>{month.loses}</strong>
+                        </div>
+                        <div>
+                          <span>分</span>
+                          <strong>{month.draws}</strong>
+                        </div>
+                        <div>
+                          <span>勝率</span>
+                          <strong>{monthWinRate.toFixed(3)}</strong>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="empty-box">月別集計データがありません</div>
@@ -832,6 +1220,18 @@ export default function Page() {
             </section>
           </div>
         </div>
+      </div>
+
+      <div
+        style={{
+          textAlign: "center",
+          fontSize: 11,
+          color: "#94a3b8",
+          marginTop: 8,
+          paddingBottom: 16,
+        }}
+      >
+        ver. 1.0.0
       </div>
     </main>
   );
