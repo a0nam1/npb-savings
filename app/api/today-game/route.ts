@@ -255,7 +255,6 @@ function parseMonthlySectionForTomorrowStarterFallback(
         startTime,
         favoriteStarter: "未発表",
         opponentStarter: "未発表",
-        note: "予告先発ページから取得できなかったため、日程詳細から補完しています。",
       };
     }
   }
