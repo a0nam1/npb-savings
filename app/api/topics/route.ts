@@ -33,7 +33,7 @@ const TEAM_KEYWORDS: Record<string, string[]> = {
   "オリックス・バファローズ": ["オリックス", "バファローズ"],
   "福岡ソフトバンクホークス": ["ソフトバンク", "ホークス"],
   "北海道日本ハムファイターズ": ["日本ハム", "ファイターズ"],
-  "千葉ロッテマリーンズ": ["ロッテ", "マリーンズ"],
+  "千葉ロッテマリーンズ": ["ロッテ", "マリーンズ", "千葉ロッテ"],
   "東北楽天ゴールデンイーグルス": ["楽天", "イーグルス"],
   "埼玉西武ライオンズ": ["西武", "ライオンズ"],
   "阪神タイガース": ["阪神", "タイガース"],
@@ -62,6 +62,10 @@ function getTeamKeywords(team: string): string[] {
   return TEAM_KEYWORDS[team] ?? [team];
 }
 
+function uniq(values: string[]): string[] {
+  return Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
+}
+
 function buildVideoQueries(team: string, opponent?: string): string[] {
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -69,17 +73,28 @@ function buildVideoQueries(team: string, opponent?: string): string[] {
 
   const teamKeywords = getTeamKeywords(team);
   const opponentKeywords = opponent ? getTeamKeywords(opponent) : [];
-  const primaryTeam = teamKeywords[0];
-  const primaryOpponent = opponentKeywords[0] ?? "";
 
-  const queries = [
-    `${primaryTeam} ${primaryOpponent} ハイライト ${month}月${day}日 プロ野球`,
-    `${primaryTeam} ${primaryOpponent} ハイライト プロ野球`,
-    `${primaryTeam} ハイライト ${month}月${day}日 プロ野球`,
-    `${primaryTeam} ハイライト プロ野球`,
-  ];
+  const teamMain = teamKeywords[0] ?? team;
+  const oppMain = opponentKeywords[0] ?? opponent ?? "";
 
-  return Array.from(new Set(queries.map((q) => q.trim()).filter(Boolean)));
+  if (oppMain) {
+    return uniq([
+      `${teamMain} ${oppMain} ハイライト ${month}月${day}日 プロ野球`,
+      `${teamMain} 対 ${oppMain} ハイライト ${month}月${day}日 プロ野球`,
+      `${oppMain} ${teamMain} ハイライト ${month}月${day}日 プロ野球`,
+      `${teamMain} ${oppMain} ハイライト プロ野球`,
+      `${teamMain} 対 ${oppMain} ハイライト`,
+      `${oppMain} ${teamMain} ハイライト`,
+      `${teamMain} ${oppMain} 試合ハイライト`,
+      `${teamMain} ハイライト ${month}月${day}日 プロ野球`,
+    ]);
+  }
+
+  return uniq([
+    `${teamMain} ハイライト ${month}月${day}日 プロ野球`,
+    `${teamMain} ハイライト プロ野球`,
+    `${teamMain} 試合ハイライト`,
+  ]);
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -139,19 +154,55 @@ function scoreVideoTitle(title: string, team: string, opponent?: string): number
   let score = 0;
 
   for (const keyword of getTeamKeywords(team)) {
-    if (normalizedTitle.includes(keyword)) score += 5;
+    if (normalizedTitle.includes(keyword)) score += 8;
   }
 
   if (opponent) {
     for (const keyword of getTeamKeywords(opponent)) {
-      if (normalizedTitle.includes(keyword)) score += 3;
+      if (normalizedTitle.includes(keyword)) score += 8;
     }
   }
 
-  if (normalizedTitle.includes("ハイライト")) score += 4;
-  if (normalizedTitle.includes("プロ野球")) score += 1;
-  if (normalizedTitle.includes("J SPORTS STADIUM")) score += 1;
-  if (normalizedTitle.includes("DAZN")) score += 1;
+  if (normalizedTitle.includes("ハイライト")) score += 10;
+  if (normalizedTitle.includes("試合")) score += 3;
+  if (normalizedTitle.includes("ゲームハイライト")) score += 4;
+  if (normalizedTitle.includes("vs")) score += 3;
+  if (normalizedTitle.includes("VS")) score += 3;
+  if (normalizedTitle.includes("対")) score += 2;
+
+  if (normalizedTitle.includes("ライブ")) score -= 8;
+  if (normalizedTitle.includes("生配信")) score -= 8;
+  if (normalizedTitle.includes("予想")) score -= 8;
+  if (normalizedTitle.includes("応援")) score -= 6;
+  if (normalizedTitle.includes("雑談")) score -= 10;
+  if (normalizedTitle.includes("shorts")) score -= 5;
+  if (normalizedTitle.includes("Shorts")) score -= 5;
+
+  return score;
+}
+
+function scorePublishedAt(publishedAt: string): number {
+  const published = new Date(publishedAt).getTime();
+  if (Number.isNaN(published)) return 0;
+
+  const now = Date.now();
+  const diffHours = Math.abs(now - published) / (1000 * 60 * 60);
+
+  if (diffHours <= 24) return 8;
+  if (diffHours <= 48) return 4;
+  if (diffHours <= 72) return 1;
+  return -5;
+}
+
+function scoreQueryMatch(title: string, query: string): number {
+  const normalizedTitle = normalizeText(title);
+  const parts = query.split(/\s+/).filter(Boolean);
+  let score = 0;
+
+  for (const part of parts) {
+    if (part.length <= 1) continue;
+    if (normalizedTitle.includes(part)) score += 2;
+  }
 
   return score;
 }
@@ -163,8 +214,9 @@ async function searchVideos(
   team: string,
   opponent: string | undefined,
   channelLabel: string,
-): Promise<TopicVideo | null> {
+): Promise<{ topic: TopicVideo | null; itemCount: number }> {
   let best: (TopicVideo & { _score: number }) | null = null;
+  let totalItems = 0;
 
   for (const query of queries) {
     const url = new URL("https://www.googleapis.com/youtube/v3/search");
@@ -192,18 +244,26 @@ async function searchVideos(
       }>;
     }>(url.toString());
 
-    for (const item of data.items ?? []) {
+    const items = data.items ?? [];
+    totalItems += items.length;
+
+    for (const item of items) {
       const videoId = normalizeText(item.id?.videoId);
       const snippet = item.snippet;
       if (!videoId || !snippet) continue;
 
       const title = normalizeText(snippet.title);
-      const score = scoreVideoTitle(title, team, opponent);
+      const publishedAt = normalizeText(snippet.publishedAt);
+
+      const score =
+        scoreVideoTitle(title, team, opponent) +
+        scorePublishedAt(publishedAt) +
+        scoreQueryMatch(title, query);
 
       const candidate: TopicVideo & { _score: number } = {
         videoId,
         title,
-        publishedAt: normalizeText(snippet.publishedAt),
+        publishedAt,
         thumbnailUrl:
           snippet.thumbnails?.high?.url ||
           snippet.thumbnails?.medium?.url ||
@@ -221,15 +281,17 @@ async function searchVideos(
       }
     }
 
-    if (best && best._score >= 10) {
+    if (best && best._score >= 24) {
       break;
     }
   }
 
-  if (!best) return null;
+  if (!best) {
+    return { topic: null, itemCount: totalItems };
+  }
 
   const { _score, ...topic } = best;
-  return topic;
+  return { topic, itemCount: totalItems };
 }
 
 export async function GET(request: NextRequest) {
@@ -254,17 +316,19 @@ export async function GET(request: NextRequest) {
 
     const origin = request.nextUrl.origin;
     const todayGame = await getTodayGameInfo(origin, team);
+    const todayHasGame = !!todayGame?.today?.hasGame;
     const opponent = normalizeText(todayGame?.today?.opponent);
+    const venue = normalizeText(todayGame?.today?.venue);
 
     const sourceInfo = resolveSource(team, todayGame);
-    const queries = buildVideoQueries(team, opponent);
+    const queries = buildVideoQueries(team, todayHasGame ? opponent : undefined);
 
-    const topic = await searchVideos(
+    const { topic, itemCount } = await searchVideos(
       apiKey,
       sourceInfo.channelId,
       queries,
       team,
-      opponent || undefined,
+      todayHasGame ? opponent || undefined : undefined,
       sourceInfo.channelLabel,
     );
 
@@ -279,8 +343,10 @@ export async function GET(request: NextRequest) {
           channelId: sourceInfo.channelId,
           query: queries[0] ?? "",
           usedKeywords: getTeamKeywords(team),
-          itemCount: 0,
+          itemCount,
           reason: "動画が見つかりませんでした",
+          opponent,
+          venue,
         },
       });
     }
@@ -295,9 +361,9 @@ export async function GET(request: NextRequest) {
         channelId: sourceInfo.channelId,
         query: queries[0] ?? "",
         usedKeywords: getTeamKeywords(team),
-        itemCount: 1,
+        itemCount,
         opponent,
-        venue: todayGame?.today?.venue ?? "",
+        venue,
       },
     });
   } catch (error) {
