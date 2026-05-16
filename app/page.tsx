@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type GameResult = "win" | "lose" | "draw";
+type AppTab = "home" | "history" | "add" | "analytics" | "settings";
 
 type Game = {
   id: number;
@@ -56,6 +57,7 @@ type TopicInfo = {
     publishedAt: string;
     thumbnailUrl: string;
     channelTitle: string;
+    channelLabel?: string;
     watchUrl: string;
     embedUrl: string;
   } | null;
@@ -65,6 +67,11 @@ type TopicInfo = {
     usedKeywords: string[];
     itemCount: number;
     reason?: string;
+    source?: string;
+    channelLabel?: string;
+    channelId?: string;
+    venue?: string;
+    opponent?: string;
   };
 };
 
@@ -133,7 +140,6 @@ function formatPublishedAt(value: string) {
   if (!value) return "";
   try {
     return new Date(value).toLocaleString("ja-JP", {
-      year: "numeric",
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
@@ -145,6 +151,9 @@ function formatPublishedAt(value: string) {
 }
 
 export default function Page() {
+  const [activeTab, setActiveTab] = useState<AppTab>("home");
+  const [showAddSheet, setShowAddSheet] = useState(false);
+
   const [favoriteTeam, setFavoriteTeam] = useState("オリックス・バファローズ");
   const [amountPerWin, setAmountPerWin] = useState(1500);
   const [games, setGames] = useState<Game[]>([]);
@@ -175,9 +184,7 @@ export default function Page() {
 
   function addDebugLog(message: string, payload?: unknown) {
     const text =
-      payload === undefined
-        ? message
-        : `${message}: ${JSON.stringify(payload, null, 2)}`;
+      payload === undefined ? message : `${message}: ${JSON.stringify(payload, null, 2)}`;
     console.log(message, payload ?? "");
     setDebugLogs((prev) => [`${new Date().toLocaleTimeString("ja-JP")} ${text}`, ...prev].slice(0, 50));
   }
@@ -266,7 +273,7 @@ export default function Page() {
     [games],
   );
 
-  const visibleGames = showAllHistory ? sortedGames : sortedGames.slice(0, 5);
+  const historyGames = showAllHistory ? sortedGames : sortedGames.slice(0, 10);
 
   const totalSavings = useMemo(
     () => games.reduce((sum, game) => sum + game.savedAmount, 0),
@@ -307,16 +314,13 @@ export default function Page() {
     try {
       setTodayGameLoading(true);
       addDebugLog("fetchTodayGame start", { team });
-
       const res = await fetch(`/api/today-game?team=${encodeURIComponent(team)}`, {
         cache: "no-store",
       });
       const data: TodayGameInfo = await res.json();
-
       setTodayGame(data);
       addDebugLog("fetchTodayGame response", data);
     } catch (error) {
-      console.error("fetchTodayGame error:", error);
       addDebugLog("fetchTodayGame error", {
         message: error instanceof Error ? error.message : String(error),
       });
@@ -330,16 +334,13 @@ export default function Page() {
     try {
       setTopicLoading(true);
       addDebugLog("fetchTopics start", { team });
-
       const res = await fetch(`/api/topics?team=${encodeURIComponent(team)}`, {
         cache: "no-store",
       });
       const data: TopicInfo = await res.json();
-
       setTopicInfo(data);
       addDebugLog("fetchTopics response", data);
     } catch (error) {
-      console.error("fetchTopics error:", error);
       addDebugLog("fetchTopics error", {
         message: error instanceof Error ? error.message : String(error),
       });
@@ -362,19 +363,11 @@ export default function Page() {
       setSyncMessage("試合結果を確認中...");
 
       const url = `/api/auto-sync?team=${encodeURIComponent(favoriteTeam)}&season=2026`;
-      addDebugLog("fetch start", { url });
-
       const res = await fetch(url, { cache: "no-store" });
 
       const now = createTimestamp();
       localStorage.setItem(STORAGE_KEYS.lastSyncedAt, now);
       setLastSyncedAt(now);
-
-      addDebugLog("fetch response", {
-        ok: res.ok,
-        status: res.status,
-        statusText: res.statusText,
-      });
 
       if (!res.ok) {
         setSyncMessage("同期に失敗しました");
@@ -388,13 +381,10 @@ export default function Page() {
 
       if (incomingGames.length === 0) {
         setSyncMessage(data?.message ?? "新しい試合結果はありません");
-        addDebugLog("incomingGames empty", data);
         return;
       }
 
       setGames((prev) => {
-        addDebugLog("prev games count", { count: prev.length });
-
         const newItems: Game[] = incomingGames
           .filter((incoming: any) => {
             const exists = prev.some((g) => {
@@ -408,8 +398,6 @@ export default function Page() {
                 g.opponentScore === incoming.opponentScore
               );
             });
-
-            addDebugLog("dedupe check", { incoming, exists });
             return !exists;
           })
           .map((incoming: any, index: number) => {
@@ -433,8 +421,6 @@ export default function Page() {
             };
           });
 
-        addDebugLog("newItems", newItems);
-
         if (newItems.length === 0) {
           setSyncMessage("最新の試合結果はすべて反映済みです");
           return prev;
@@ -442,17 +428,13 @@ export default function Page() {
 
         setSyncMessage(`${newItems.length}件の試合結果を反映しました`);
 
-        const merged = [...newItems, ...prev].sort((a, b) => {
+        return [...newItems, ...prev].sort((a, b) => {
           const dateCompare = b.date.localeCompare(a.date);
           if (dateCompare !== 0) return dateCompare;
           return b.id - a.id;
         });
-
-        addDebugLog("merged games count", { count: merged.length });
-        return merged;
       });
     } catch (error) {
-      console.error(error);
       addDebugLog("sync error", {
         message: error instanceof Error ? error.message : String(error),
       });
@@ -471,12 +453,10 @@ export default function Page() {
 
     if (!didInitialSyncRef.current) {
       didInitialSyncRef.current = true;
-      addDebugLog("initial auto sync");
       void syncLatestGame();
       return;
     }
 
-    addDebugLog("team changed auto sync", { favoriteTeam });
     void syncLatestGame();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [favoriteTeam, isHydrated]);
@@ -489,7 +469,6 @@ export default function Page() {
     localStorage.setItem(STORAGE_KEYS.lastSavedAt, now);
     setLastSavedAt(now);
     setSyncMessage("保存しました");
-    addDebugLog("manual save", { key: currentGamesKey, count: games.length });
   }
 
   function resetForm() {
@@ -498,14 +477,10 @@ export default function Page() {
     setTeamScore(0);
     setOpponentScore(0);
     setEditingId(null);
-    addDebugLog("form reset");
   }
 
   function saveGame() {
-    if (!opponent.trim()) {
-      addDebugLog("saveGame blocked", { reason: "opponent empty" });
-      return;
-    }
+    if (!opponent.trim()) return;
 
     const result = getResult(teamScore, opponentScore);
     const savedAmount =
@@ -531,7 +506,6 @@ export default function Page() {
             : game,
         ),
       );
-      addDebugLog("game updated", { editingId, date, opponent, teamScore, opponentScore, result });
     } else {
       const newGame: Game = {
         id: Date.now(),
@@ -543,15 +517,15 @@ export default function Page() {
         savedAmount,
       };
       setGames((prev) => [newGame, ...prev]);
-      addDebugLog("game added", newGame);
     }
 
     resetForm();
+    setShowAddSheet(false);
+    setActiveTab("history");
   }
 
   function deleteGame(id: number) {
     setGames((prev) => prev.filter((g) => g.id !== id));
-    addDebugLog("game deleted", { id });
     if (editingId === id) resetForm();
   }
 
@@ -561,8 +535,8 @@ export default function Page() {
     setOpponent(game.opponent);
     setTeamScore(game.teamScore);
     setOpponentScore(game.opponentScore);
-    addDebugLog("start edit", game);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setShowAddSheet(true);
+    setActiveTab("add");
   }
 
   function resetAllData() {
@@ -582,55 +556,27 @@ export default function Page() {
     setSyncMessage("");
     setTodayGame(null);
     setTopicInfo(null);
-    addDebugLog("reset all data");
     resetForm();
   }
 
-  return (
-    <main className="sports-app-shell">
-      <div className="sports-app-container sports-app-container--wide">
-        <section className="hero-navy">
-          <div className="hero-navy__content">
-            <div>
-              <p className="hero-navy__eyebrow">推し活 × 貯金</p>
-              <h1 className="hero-navy__title">推し勝貯金</h1>
-              <p className="hero-navy__team">
-                現在の推し球団：
-                <span>{favoriteTeam}</span>
-              </p>
-            </div>
+  function renderHomeTab() {
+    return (
+      <div className="home-stack">
+        <section className="white-card summary-top-card compact-summary-card">
+          <div className="summary-amount-row">
+            <div className="money-icon-box compact-money-icon">¥</div>
 
-            <button className="profile-circle" type="button" aria-label="profile">
-              <span>◯</span>
-            </button>
-          </div>
-
-          <div className="hero-ball" />
-        </section>
-
-        <section className="white-card summary-top-card">
-          <div className="summary-top-card__row">
-            <div className="money-icon-box">¥</div>
-
-            <div className="summary-top-card__main">
-              <p className="section-mini-label">累計貯金額</p>
-              <h2>{yen(totalSavings)}</h2>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap",
-                justifyContent: "flex-end",
-                alignItems: "center",
-              }}
-            >
-              <div className="pill-dark">1 勝 {yen(amountPerWin)}</div>
+            <div className="summary-amount-main">
+              <p className="section-mini-label compact-summary-label">累計貯金額</p>
+              <h2 className="compact-summary-amount">{yen(totalSavings)}</h2>
             </div>
           </div>
 
-          <div className="stats-strip">
+          <div className="summary-rate-row">
+            <div className="pill-dark compact-pill">1 勝 {yen(amountPerWin)}</div>
+          </div>
+
+          <div className="mobile-stats-strip">
             <div>
               <p>勝</p>
               <strong>{winCount}</strong>
@@ -646,211 +592,414 @@ export default function Page() {
           </div>
         </section>
 
-        <div className="responsive-main-grid">
-          <div className="responsive-main-grid__left">
-            <section className="white-card">
-              <div className="section-header">
-                <h3>試合</h3>
+        <section className="white-card">
+          <div className="section-header">
+            <h3 className="mobile-section-title">試合</h3>
+          </div>
+
+          {todayGameLoading ? (
+            <div className="empty-box">試合情報を読み込み中...</div>
+          ) : !todayGame ? (
+            <div className="empty-box">試合情報を取得できませんでした。</div>
+          ) : (
+            <div className="match-card-shell">
+              <div className="match-card-slider">
+                <section className="match-card-page">
+                  <article className="game-slide game-slide--today mobile-game-slide">
+                    <div className="game-slide__badge">TODAY</div>
+
+                    {todayGame.today.hasGame ? (
+                      <>
+                        <div className="game-slide__title mobile-game-title">本日の試合</div>
+                        <div className="game-slide__match mobile-game-match">
+                          vs {todayGame.today.opponent}
+                        </div>
+
+                        <div className="mobile-game-info-grid">
+                          <div className="game-info-box">
+                            <div className="game-info-box__label">開催場所</div>
+                            <div className="game-info-box__value">
+                              {todayGame.today.venue || "未定"}
+                            </div>
+                          </div>
+                          <div className="game-info-box">
+                            <div className="game-info-box__label">開始時刻</div>
+                            <div className="game-info-box__value">
+                              {todayGame.today.startTime || "--:--"}
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="game-slide__title mobile-game-title">本日の試合</div>
+                        <div className="game-slide__empty">本日は試合予定がありません</div>
+                      </>
+                    )}
+                  </article>
+                </section>
+
+                <section className="match-card-page">
+                  <article className="game-slide game-slide--tomorrow mobile-game-slide">
+                    <div className="game-slide__badge">TOMORROW</div>
+
+                    {todayGame.tomorrowStarter.hasAnnouncement ? (
+                      <>
+                        <div className="game-slide__title mobile-game-title">翌日の試合</div>
+                        <div className="game-slide__match mobile-game-match">
+                          vs {todayGame.tomorrowStarter.opponent}
+                        </div>
+
+                        <div className="mobile-game-info-grid">
+                          <div className="game-info-box">
+                            <div className="game-info-box__label">開催場所</div>
+                            <div className="game-info-box__value">
+                              {todayGame.tomorrowStarter.venue || "未定"}
+                            </div>
+                          </div>
+                          <div className="game-info-box">
+                            <div className="game-info-box__label">開始時刻</div>
+                            <div className="game-info-box__value">
+                              {todayGame.tomorrowStarter.startTime || "--:--"}
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="game-slide__title mobile-game-title">翌日の試合</div>
+                        <div className="game-slide__empty">翌日は試合予定がありません</div>
+                      </>
+                    )}
+                  </article>
+                </section>
               </div>
 
-              {todayGameLoading ? (
-                <div className="empty-box">試合情報を読み込み中...</div>
-              ) : !todayGame ? (
-                <div className="empty-box">試合情報を取得できませんでした。</div>
-              ) : (
-                <>
-                  <div className="game-scroll-wrap">
-                    <div className="game-scroll-track">
-                      <article className="game-slide game-slide--today">
-                        <div className="game-slide__badge">TODAY</div>
+              <div className="game-scroll-hint">カード内を横にスワイプ</div>
+            </div>
+          )}
+        </section>
 
-                        {todayGame.today.hasGame ? (
-                          <>
-                            <div className="game-slide__title">本日の試合</div>
-                            <div className="game-slide__match">vs {todayGame.today.opponent}</div>
+        <section className="white-card">
+          <div className="section-header">
+            <h3 className="mobile-section-title">今日のトピックス</h3>
+          </div>
 
-                            <div className="game-info-grid">
-                              <div className="game-info-box">
-                                <div className="game-info-box__label">開催場所</div>
-                                <div className="game-info-box__value">
-                                  {todayGame.today.venue || "未定"}
-                                </div>
-                              </div>
-
-                              <div className="game-info-box">
-                                <div className="game-info-box__label">開始時刻</div>
-                                <div className="game-info-box__value">
-                                  {todayGame.today.startTime || "--:--"}
-                                </div>
-                              </div>
-                            </div>
-
-                            {todayGame.today.note ? (
-                              <div className="game-slide__note">{todayGame.today.note}</div>
-                            ) : null}
-                          </>
-                        ) : (
-                          <>
-                            <div className="game-slide__title">本日の試合</div>
-                            <div className="game-slide__empty">本日は試合予定がありません</div>
-                            {todayGame.today.note ? (
-                              <div className="game-slide__note">{todayGame.today.note}</div>
-                            ) : null}
-                          </>
-                        )}
-                      </article>
-
-                      <article className="game-slide game-slide--tomorrow">
-                        <div className="game-slide__badge">TOMORROW</div>
-
-                        <div className="game-slide__title">翌日の試合</div>
-
-                        {todayGame.tomorrowStarter.hasAnnouncement ? (
-                          <>
-                            <div className="game-slide__match">
-                              vs {todayGame.tomorrowStarter.opponent}
-                            </div>
-
-                            <div className="game-info-grid">
-                              <div className="game-info-box">
-                                <div className="game-info-box__label">開催場所</div>
-                                <div className="game-info-box__value">
-                                  {todayGame.tomorrowStarter.venue || "未定"}
-                                </div>
-                              </div>
-
-                              <div className="game-info-box">
-                                <div className="game-info-box__label">開始時刻</div>
-                                <div className="game-info-box__value">
-                                  {todayGame.tomorrowStarter.startTime || "--:--"}
-                                </div>
-                              </div>
-                            </div>
-
-                            {todayGame.tomorrowStarter.note ? (
-                              <div className="game-slide__note">
-                                {todayGame.tomorrowStarter.note}
-                              </div>
-                            ) : null}
-                          </>
-                        ) : (
-                          <>
-                            <div className="game-slide__empty">翌日は試合予定がありません</div>
-
-                            {todayGame.tomorrowStarter.note ? (
-                              <div className="game-slide__note">
-                                {todayGame.tomorrowStarter.note}
-                              </div>
-                            ) : null}
-                          </>
-                        )}
-                      </article>
-                    </div>
-                  </div>
-
-                  <div className="game-scroll-hint">横にスワイプして確認</div>
-                </>
-              )}
-            </section>
-
-            <section className="white-card">
-              <div className="section-header">
-                <h3>今日のトピックス</h3>
+          {topicLoading ? (
+            <div className="empty-box">トピックスを読み込み中...</div>
+          ) : !topicInfo?.topic ? (
+            <div className="empty-box">
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>動画が見つかりませんでした</div>
+              <div style={{ color: "#7b8598", fontSize: 14 }}>
+                {topicInfo?.debug?.reason ?? "YouTubeのハイライトを取得できませんでした。"}
+              </div>
+            </div>
+          ) : (
+            <div className="topic-embed-card">
+              <div className="topic-embed-frame">
+                <iframe
+                  src={topicInfo.topic.embedUrl}
+                  title={topicInfo.topic.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
               </div>
 
-              {topicLoading ? (
-                <div className="empty-box">トピックスを読み込み中...</div>
-              ) : !topicInfo?.topic ? (
-                <div className="empty-box">
-                  <div style={{ fontWeight: 800, marginBottom: 8 }}>動画が見つかりませんでした</div>
-                  <div style={{ color: "#7b8598", fontSize: 14 }}>
-                    {topicInfo?.debug?.reason ?? "YouTubeのハイライトを取得できませんでした。"}
+              <div className="topic-embed-meta">
+                <div className="topic-channel-label">
+                  {topicInfo.topic.channelLabel || topicInfo.topic.channelTitle}
+                </div>
+
+                <div className="topic-title-text">{topicInfo.topic.title}</div>
+
+                <div className="topic-date-text">
+                  {formatPublishedAt(topicInfo.topic.publishedAt)}
+                </div>
+
+                <a
+                  href={topicInfo.topic.watchUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="topic-open-link"
+                >
+                  YouTubeで開く
+                </a>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+    );
+  }
+
+  function renderHistoryTab() {
+    return (
+      <section className="white-card">
+        <div className="section-header">
+          <h3 className="mobile-section-title">試合履歴</h3>
+          <button
+            className="section-link"
+            type="button"
+            onClick={() => setShowAllHistory((prev) => !prev)}
+          >
+            {showAllHistory ? "閉じる" : "すべてを見る ›"}
+          </button>
+        </div>
+
+        {sortedGames.length === 0 ? (
+          <div className="empty-box">まだ試合が登録されていません</div>
+        ) : (
+          <div className="history-list">
+            {historyGames.map((game) => (
+              <div key={game.id} className="history-line">
+                <div className="history-line__left">
+                  <p className="history-date">{game.date}</p>
+                  <p className="history-opponent">vs {game.opponent}</p>
+                </div>
+
+                <div className={`history-badge ${game.result}`}>{resultLabel(game.result)}</div>
+
+                <div className="history-score">
+                  {game.teamScore} - {game.opponentScore}
+                </div>
+
+                <div className="history-actions">
+                  <button onClick={() => startEdit(game)}>編集</button>
+                  <button onClick={() => deleteGame(game.id)}>削除</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  function renderAddTab() {
+    return (
+      <section className="white-card">
+        <div className="section-header">
+          <h3 className="mobile-section-title">試合を追加</h3>
+        </div>
+
+        <div className="empty-box" style={{ textAlign: "center" }}>
+          <div className="add-tab-plus">+</div>
+          <div style={{ fontWeight: 800, marginBottom: 8 }}>下の追加ボタンから登録</div>
+          <div style={{ color: "#7b8598", fontSize: 14 }}>試合結果や手動追加をまとめて行えます</div>
+        </div>
+      </section>
+    );
+  }
+
+  function renderAnalyticsTab() {
+    return (
+      <section className="white-card">
+        <div className="section-header">
+          <h3 className="mobile-section-title">月別集計</h3>
+        </div>
+
+        {monthlySummary.length > 0 ? (
+          <div style={{ display: "grid", gap: 14 }}>
+            {monthlySummary.map((month) => {
+              const monthGames = games.filter((game) => monthKey(game.date) === month.month);
+              const monthWinRate =
+                monthGames.length === 0
+                  ? 0
+                  : Math.round(
+                      (monthGames.filter((g) => g.result === "win").length / monthGames.length) *
+                        1000,
+                    ) / 1000;
+
+              return (
+                <div key={month.month} className="monthly-table">
+                  <div className="monthly-table__month">{month.month.replace("-", "年")}月</div>
+                  <div>
+                    <span>貯金額</span>
+                    <strong>{yen(month.savings)}</strong>
+                  </div>
+                  <div>
+                    <span>勝</span>
+                    <strong>{month.wins}</strong>
+                  </div>
+                  <div>
+                    <span>敗</span>
+                    <strong>{month.loses}</strong>
+                  </div>
+                  <div>
+                    <span>分</span>
+                    <strong>{month.draws}</strong>
+                  </div>
+                  <div>
+                    <span>勝率</span>
+                    <strong>{monthWinRate.toFixed(3)}</strong>
                   </div>
                 </div>
-              ) : (
-                <div style={{ display: "grid", gap: 14 }}>
-                  <div
-                    style={{
-                      position: "relative",
-                      width: "100%",
-                      paddingTop: "56.25%",
-                      borderRadius: 18,
-                      overflow: "hidden",
-                      background: "#0f172a",
-                    }}
-                  >
-                    <iframe
-                      src={topicInfo.topic.embedUrl}
-                      title={topicInfo.topic.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: "100%",
-                        height: "100%",
-                        border: "none",
-                      }}
-                    />
-                  </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="empty-box">月別集計データがありません</div>
+        )}
 
-                  <div
-                    style={{
-                      border: "1px solid #e7e9ef",
-                      borderRadius: 18,
-                      background: "#fff",
-                      padding: 14,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 800,
-                        color: "#2f66d8",
-                        marginBottom: 8,
-                      }}
-                    >
-                      PACIFIC LEAGUE TV
-                    </div>
+        <div className="sub-metrics">
+          <div>
+            <span>試合数</span>
+            <strong>{games.length}</strong>
+          </div>
+          <div>
+            <span>勝利数</span>
+            <strong>{winCount}</strong>
+          </div>
+          <div>
+            <span>平均貯金額</span>
+            <strong>{yen(averageSavings(games))}</strong>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 900,
-                        lineHeight: 1.5,
-                        color: "#1f2a44",
-                        marginBottom: 10,
-                      }}
-                    >
-                      {topicInfo.topic.title}
-                    </div>
+  function renderSettingsTab() {
+    return (
+      <>
+        {debugEnabled && (
+          <section className="white-card">
+            <div className="section-header">
+              <h3 className="mobile-section-title">設定 / デバッグ</h3>
+              <div className="mini-actions" style={{ marginTop: 0 }}>
+                <button className="small-outline" onClick={() => setDebugLogs([])}>
+                  クリア
+                </button>
+                <button className="small-outline" onClick={() => setDebugEnabled(false)}>
+                  非表示
+                </button>
+              </div>
+            </div>
 
-                    <div style={{ fontSize: 13, color: "#6c7890", marginBottom: 12 }}>
-                      公開日時: {formatPublishedAt(topicInfo.topic.publishedAt)}
-                    </div>
+            <div className="empty-box" style={{ textAlign: "left" }}>
+              <p><strong>現在の球団:</strong> {favoriteTeam}</p>
+              <p><strong>保存キー:</strong> {currentGamesKey}</p>
+              <p><strong>試合数:</strong> {games.length}</p>
+              <p><strong>同期中:</strong> {String(isSyncing)}</p>
+              <p><strong>最終同期:</strong> {lastSyncedAt || "未同期"}</p>
+              <p><strong>最終保存:</strong> {lastSavedAt || "未保存"}</p>
+            </div>
 
-                    <a
-                      href={topicInfo.topic.watchUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="small-outline"
-                      style={{
-                        display: "inline-flex",
-                        textDecoration: "none",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      YouTubeで見る
-                    </a>
-                  </div>
-                </div>
-              )}
-            </section>
+            <div className="debug-box">
+              <div className="debug-box-title">todayGame JSON</div>
+              <div className="debug-box-content">
+                {todayGame ? JSON.stringify(todayGame, null, 2) : "todayGame はまだありません"}
+              </div>
+            </div>
 
-            <section className="white-card">
+            <div className="debug-box">
+              <div className="debug-box-title">topicInfo JSON</div>
+              <div className="debug-box-content">
+                {topicInfo ? JSON.stringify(topicInfo, null, 2) : "topicInfo はまだありません"}
+              </div>
+            </div>
+
+            <div className="debug-box">
+              <div className="debug-box-title">debug logs</div>
+              <div className="debug-box-content">
+                {debugLogs.length === 0 ? "ログはまだありません" : debugLogs.join("\n\n")}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {!debugEnabled && (
+          <section className="white-card">
+            <div className="section-header">
+              <h3 className="mobile-section-title">設定 / デバッグ</h3>
+            </div>
+            <button className="small-outline" onClick={() => setDebugEnabled(true)}>
+              デバッグを再表示
+            </button>
+          </section>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <main className="sports-app-shell">
+      <div className="sports-app-container sports-app-container--wide">
+        <section className="hero-navy mobile-hero">
+          <div className="hero-navy__content mobile-hero-content">
+            <div className="mobile-hero-text">
+              <p className="hero-navy__eyebrow mobile-hero-eyebrow">推し活 × 貯金</p>
+              <h1 className="hero-navy__title mobile-hero-title">推し勝貯金</h1>
+              <p className="hero-navy__team mobile-hero-team">
+                現在の推し球団：<span>{favoriteTeam}</span>
+              </p>
+            </div>
+
+            <button className="profile-circle mobile-profile-circle" type="button" aria-label="profile">
+              <span>◯</span>
+            </button>
+          </div>
+          <div className="hero-ball mobile-hero-ball" />
+        </section>
+
+        <div className="app-content-with-fixed-tab">
+          {activeTab === "home" && renderHomeTab()}
+          {activeTab === "history" && renderHistoryTab()}
+          {activeTab === "add" && renderAddTab()}
+          {activeTab === "analytics" && renderAnalyticsTab()}
+          {activeTab === "settings" && renderSettingsTab()}
+        </div>
+
+        <nav className="bottom-tab-nav-fixed">
+          <div className="bottom-tab-nav-inner">
+            <button onClick={() => setActiveTab("home")} style={tabButtonStyle(activeTab === "home")}>
+              <span style={tabShapeStyle(activeTab === "home", "square")} />
+              <span>ホーム</span>
+            </button>
+
+            <button onClick={() => setActiveTab("history")} style={tabButtonStyle(activeTab === "history")}>
+              <span style={tabShapeStyle(activeTab === "history", "line")} />
+              <span>履歴</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab("add");
+                setShowAddSheet(true);
+              }}
+              className={`bottom-add-button ${activeTab === "add" || showAddSheet ? "active" : ""}`}
+            >
+              +
+            </button>
+
+            <button onClick={() => setActiveTab("analytics")} style={tabButtonStyle(activeTab === "analytics")}>
+              <span style={tabShapeStyle(activeTab === "analytics", "bars")} />
+              <span>分析</span>
+            </button>
+
+            <button onClick={() => setActiveTab("settings")} style={tabButtonStyle(activeTab === "settings")}>
+              <span style={tabShapeStyle(activeTab === "settings", "circle")} />
+              <span>設定</span>
+            </button>
+          </div>
+        </nav>
+
+        {showAddSheet && (
+          <div
+            onClick={() => {
+              setShowAddSheet(false);
+              if (editingId === null) setActiveTab("home");
+            }}
+            className="sheet-overlay"
+          >
+            <div onClick={(e) => e.stopPropagation()} className="sheet-panel">
+              <div className="sheet-handle" />
+
               <div className="section-header">
-                <h3>試合を追加</h3>
+                <h3 className="mobile-section-title">{editingId !== null ? "試合を編集" : "試合を追加"}</h3>
+                <button className="small-outline" onClick={() => setShowAddSheet(false)}>
+                  閉じる
+                </button>
               </div>
 
               <div className="form-list">
@@ -924,9 +1073,7 @@ export default function Page() {
                 <div className="form-row">
                   <span className="form-row__icon">⚑</span>
                   <label>判定結果</label>
-                  <div className={`judge-chip ${currentResult}`}>
-                    {resultLabel(currentResult)}
-                  </div>
+                  <div className={`judge-chip ${currentResult}`}>{resultLabel(currentResult)}</div>
                 </div>
               </div>
 
@@ -935,21 +1082,12 @@ export default function Page() {
                   {editingId !== null ? "更新する" : "試合を追加"}
                 </button>
 
-                {editingId !== null && (
-                  <button className="secondary-line-button" onClick={resetForm}>
-                    キャンセル
-                  </button>
-                )}
+                <button className="secondary-line-button" onClick={resetForm}>
+                  入力をリセット
+                </button>
 
                 <div className="mini-actions">
-                  <button
-                    className="small-outline"
-                    onClick={() => {
-                      addDebugLog("sync button clicked");
-                      void syncLatestGame();
-                    }}
-                    disabled={isSyncing}
-                  >
+                  <button className="small-outline" onClick={() => void syncLatestGame()} disabled={isSyncing}>
                     {isSyncing ? "同期中..." : "同期"}
                   </button>
                   <button className="small-outline" onClick={saveToLocalStorage}>
@@ -965,274 +1103,94 @@ export default function Page() {
                 {lastSavedAt && <p className="meta-message">最終保存: {lastSavedAt}</p>}
                 <p className="meta-message emphasis">今回の加算予定: {yen(currentSavedAmount)}</p>
               </div>
-            </section>
-
-            {debugEnabled && (
-              <section className="white-card">
-                <div className="section-header">
-                  <h3>デバッグ表示</h3>
-                  <div className="mini-actions" style={{ marginTop: 0 }}>
-                    <button className="small-outline" onClick={() => setDebugLogs([])}>
-                      クリア
-                    </button>
-                    <button className="small-outline" onClick={() => setDebugEnabled(false)}>
-                      非表示
-                    </button>
-                  </div>
-                </div>
-
-                <div className="empty-box" style={{ textAlign: "left" }}>
-                  <p><strong>現在の球団:</strong> {favoriteTeam}</p>
-                  <p><strong>保存キー:</strong> {currentGamesKey}</p>
-                  <p><strong>試合数:</strong> {games.length}</p>
-                  <p><strong>同期中:</strong> {String(isSyncing)}</p>
-                  <p><strong>最終同期:</strong> {lastSyncedAt || "未同期"}</p>
-                  <p><strong>最終保存:</strong> {lastSavedAt || "未保存"}</p>
-                  <p><strong>本日の試合:</strong> {todayGame?.today?.hasGame ? "あり" : "なし"}</p>
-                  <p><strong>今日の取得元:</strong> {todayGame?.debug?.todaySource ?? "未取得"}</p>
-                  <p><strong>翌日の試合:</strong> {todayGame?.tomorrowStarter?.hasAnnouncement ? "あり" : "なし"}</p>
-                  <p><strong>翌日の取得元:</strong> {todayGame?.debug?.tomorrowSource ?? "未取得"}</p>
-                  <p><strong>トピックス動画:</strong> {topicInfo?.topic ? "あり" : "なし"}</p>
-                </div>
-
-                <div
-                  style={{
-                    marginTop: 12,
-                    border: "1px solid #e7e9ef",
-                    borderRadius: 12,
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                    padding: 12,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 800,
-                      marginBottom: 10,
-                      color: "#93c5fd",
-                    }}
-                  >
-                    todayGame JSON
-                  </div>
-
-                  <div
-                    style={{
-                      maxHeight: 220,
-                      overflow: "auto",
-                      fontSize: 12,
-                      whiteSpace: "pre-wrap",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {todayGame ? JSON.stringify(todayGame, null, 2) : "todayGame はまだありません"}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    marginTop: 12,
-                    border: "1px solid #e7e9ef",
-                    borderRadius: 12,
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                    padding: 12,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 800,
-                      marginBottom: 10,
-                      color: "#93c5fd",
-                    }}
-                  >
-                    topicInfo JSON
-                  </div>
-
-                  <div
-                    style={{
-                      maxHeight: 220,
-                      overflow: "auto",
-                      fontSize: 12,
-                      whiteSpace: "pre-wrap",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {topicInfo ? JSON.stringify(topicInfo, null, 2) : "topicInfo はまだありません"}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    marginTop: 12,
-                    border: "1px solid #e7e9ef",
-                    borderRadius: 12,
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                    padding: 12,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 800,
-                      marginBottom: 10,
-                      color: "#93c5fd",
-                    }}
-                  >
-                    debug logs
-                  </div>
-
-                  <div
-                    style={{
-                      maxHeight: 320,
-                      overflow: "auto",
-                      fontSize: 12,
-                      whiteSpace: "pre-wrap",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {debugLogs.length === 0 ? "ログはまだありません" : debugLogs.join("\n\n")}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {!debugEnabled && (
-              <section className="white-card">
-                <div className="section-header">
-                  <h3>デバッグ表示</h3>
-                </div>
-                <button className="small-outline" onClick={() => setDebugEnabled(true)}>
-                  デバッグを再表示
-                </button>
-              </section>
-            )}
+            </div>
           </div>
+        )}
 
-          <div className="responsive-main-grid__right">
-            <section className="white-card">
-              <div className="section-header">
-                <h3>試合履歴</h3>
-                <button
-                  className="section-link"
-                  type="button"
-                  onClick={() => setShowAllHistory((prev) => !prev)}
-                >
-                  {showAllHistory ? "閉じる" : "すべてを見る ›"}
-                </button>
-              </div>
-
-              {sortedGames.length === 0 ? (
-                <div className="empty-box">まだ試合が登録されていません</div>
-              ) : (
-                <div className="history-list">
-                  {visibleGames.map((game) => (
-                    <div key={game.id} className="history-line">
-                      <div className="history-line__left">
-                        <p className="history-date">{game.date}</p>
-                        <p className="history-opponent">vs {game.opponent}</p>
-                      </div>
-
-                      <div className={`history-badge ${game.result}`}>
-                        {resultLabel(game.result)}
-                      </div>
-
-                      <div className="history-score">
-                        {game.teamScore} - {game.opponentScore}
-                      </div>
-
-                      <div className="history-actions">
-                        <button onClick={() => startEdit(game)}>編集</button>
-                        <button onClick={() => deleteGame(game.id)}>削除</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="white-card">
-              <div className="section-header">
-                <h3>月別集計</h3>
-              </div>
-
-              {monthlySummary.length > 0 ? (
-                <div style={{ display: "grid", gap: 14 }}>
-                  {monthlySummary.map((month) => {
-                    const monthGames = games.filter((game) => monthKey(game.date) === month.month);
-                    const monthWinRate =
-                      monthGames.length === 0
-                        ? 0
-                        : Math.round(
-                            (monthGames.filter((g) => g.result === "win").length / monthGames.length) *
-                              1000,
-                          ) / 1000;
-
-                    return (
-                      <div key={month.month} className="monthly-table">
-                        <div className="monthly-table__month">
-                          {month.month.replace("-", "年")}月
-                        </div>
-                        <div>
-                          <span>貯金額</span>
-                          <strong>{yen(month.savings)}</strong>
-                        </div>
-                        <div>
-                          <span>勝</span>
-                          <strong>{month.wins}</strong>
-                        </div>
-                        <div>
-                          <span>敗</span>
-                          <strong>{month.loses}</strong>
-                        </div>
-                        <div>
-                          <span>分</span>
-                          <strong>{month.draws}</strong>
-                        </div>
-                        <div>
-                          <span>勝率</span>
-                          <strong>{monthWinRate.toFixed(3)}</strong>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="empty-box">月別集計データがありません</div>
-              )}
-
-              <div className="sub-metrics">
-                <div>
-                  <span>試合数</span>
-                  <strong>{games.length}</strong>
-                </div>
-                <div>
-                  <span>勝利数</span>
-                  <strong>{winCount}</strong>
-                </div>
-                <div>
-                  <span>平均貯金額</span>
-                  <strong>{yen(averageSavings(games))}</strong>
-                </div>
-              </div>
-            </section>
+        <div
+          style={{
+            textAlign: "center",
+            fontSize: 11,
+            color: "#7b8598",
+            lineHeight: 1.6,
+            padding: "6px 12px 2px",
+          }}
+        >
+          <div>※試合情報の引用元：NPB公式サイトベース</div>
+          <div>
+            ※YouTube取得元：
+            {topicInfo?.debug?.channelLabel || topicInfo?.topic?.channelLabel || "未取得"}
           </div>
         </div>
-      </div>
 
-      <div
-        style={{
-          textAlign: "center",
-          fontSize: 11,
-          color: "#94a3b8",
-          marginTop: 8,
-          paddingBottom: 16,
-        }}
-      >
-        ver. 1.0.0
+        <div className="app-version-fixed">ver. 1.1</div>
       </div>
     </main>
   );
+}
+
+function tabButtonStyle(active: boolean): React.CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    border: "none",
+    background: "transparent",
+    color: active ? "#0c2d6c" : "#7b8598",
+    fontSize: 10,
+    fontWeight: 800,
+    cursor: "pointer",
+    padding: "4px 0",
+    minWidth: 0,
+  };
+}
+
+function tabShapeStyle(
+  active: boolean,
+  kind: "square" | "line" | "bars" | "circle",
+): React.CSSProperties {
+  const color = active ? "#0c2d6c" : "#94a3b8";
+
+  if (kind === "square") {
+    return {
+      width: 12,
+      height: 12,
+      borderRadius: 3,
+      background: color,
+      flexShrink: 0,
+    };
+  }
+
+  if (kind === "line") {
+    return {
+      width: 14,
+      height: 2,
+      borderRadius: 999,
+      background: color,
+      boxShadow: `0 4px 0 ${color}, 0 -4px 0 ${color}`,
+      flexShrink: 0,
+    };
+  }
+
+  if (kind === "bars") {
+    return {
+      width: 14,
+      height: 14,
+      background:
+        "linear-gradient(to right, transparent 0 2px, currentColor 2px 4px, transparent 4px 6px, currentColor 6px 8px, transparent 8px 10px, currentColor 10px 12px, transparent 12px 14px)",
+      color,
+      flexShrink: 0,
+    };
+  }
+
+  return {
+    width: 12,
+    height: 12,
+    borderRadius: "50%",
+    background: active ? "#0c2d6c" : "transparent",
+    border: `2px solid ${color}`,
+    flexShrink: 0,
+  };
 }
